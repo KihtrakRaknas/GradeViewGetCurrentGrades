@@ -29,9 +29,7 @@ async function scrapeAssignments(page) {
     return list;
 }
 
-//formerly getData(email,pass)
-module.exports = async function getCurrentGrades(email, pass) {
-    //Set up browser
+module.exports.createBrowser = async function(params){
     const browser = await puppeteer.launch({
         args: [
             '--no-sandbox',
@@ -41,16 +39,16 @@ module.exports = async function getCurrentGrades(email, pass) {
             '--disable-gpu',
             '--window-size=1920x1080',
         ],
-        //headless: false, // launch headful mode
-        //slowMo: 1000, // slow down puppeteer script so that it's easier to follow visually
+        ...params
     }).catch((err) => {
         console.log(err)
     });
-    if (browser == null) {
-        console.log("Chrome Crashed----------------------------------------------------------")
-        return { Status: "Chrome Crashed" };
-    }
-    const page = await browser.newPage();
+    return browser
+}
+
+module.exports.createPage = async function(browser){
+    //const page = await browser.newPage();
+    const page=(await browser.pages())[0]
     await page.setUserAgent('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3738.0 Safari/537.36');
     await page.setRequestInterception(true);
     const blockedResourceTypes = ['image','media','font','texttrack','object','beacon','csp_report','imageset','stylesheet'];
@@ -63,17 +61,38 @@ module.exports = async function getCurrentGrades(email, pass) {
             req.continue();
         }
     });
-    //Navigate to the site and sign in
+    return page
+}
+
+module.exports.openAndSignIntoGenesis = async function (page, emailURIencoded, passURIencoded){
+    const genesisHomePageURL = 'https://students.sbschools.org/genesis/parents?gohome=true';
+    await page.goto(genesisHomePageURL, { waitUntil: 'domcontentloaded' });
+    const loginURL = 'https://students.sbschools.org/genesis/j_security_check?j_username=' + emailURIencoded + '&j_password=' + passURIencoded;
+    await page.goto(loginURL, { waitUntil: 'domcontentloaded' });
+}
+
+module.exports.checkSignIn = async function (page){
+    return (page.url() != "https://students.sbschools.org/genesis/parents?gohome=true" && await $('.sectionTitle', await page.content()).text().trim() != "Invalid user name or password.  Please try again.")
+}
+
+//formerly getData(email,pass)
+module.exports.getCurrentGrades = async function (email, pass) {
     email = encodeURIComponent(email);
     pass = encodeURIComponent(pass);
-    const genesisHomePageURL = 'https://students.sbschools.org/genesis/parents?gohome=true';
-    const loginURL = 'https://students.sbschools.org/genesis/j_security_check?j_username=' + email + '&j_password=' + pass;
-    await page.goto(genesisHomePageURL, { waitUntil: 'domcontentloaded' });
-    await page.goto(loginURL, { waitUntil: 'domcontentloaded' });
+    //Set up browser
+    const browser = await module.exports.createBrowser({
+        headless: false, // launch headful mode
+        //slowMo: 1000, // slow down puppeteer script so that it's easier to follow visually
+    })
+    if (browser == null) {
+        console.log("Chrome Crashed----------------------------------------------------------")
+        return { Status: "Chrome Crashed" };
+    }
+    const page = await module.exports.createPage(browser)
+    //Navigate to the site and sign in
+    await module.exports.openAndSignIntoGenesis(page,email,pass)
     //Verify Sign in was successful
-    var signedIn = false;
-    if (await $('.sectionTitle', await page.content()).text().trim() != "Invalid user name or password.  Please try again.")
-        signedIn = true;
+    const signedIn = await module.exports.checkSignIn(page)
     if (!signedIn) {
         await browser.close();
         console.log("BAD user||pass")
