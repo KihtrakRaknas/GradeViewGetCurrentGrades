@@ -24,6 +24,10 @@ module.exports.getSchoolUrl = function(schoolDomain,pageType){
     return root+page
 }
 
+module.exports.getSchoolFromEmail = function(email){
+    return email.substring(email.indexOf("@"))
+}
+
 //This is a helper function to get the list of assignments on a page
 async function scrapeAssignments(page) {
     var list = await page.evaluate(() => {
@@ -99,7 +103,8 @@ module.exports.checkSignIn = async function (page, schoolDomain){
 }
 
 //formerly getData(email,pass)
-module.exports.getCurrentGrades = async function (email, pass, schoolDomain) {
+module.exports.getCurrentGrades = async function (email, pass) {
+    const schoolDomain = module.exports.getSchoolFromEmail(email)
     email = encodeURIComponent(email);
     pass = encodeURIComponent(pass);
     //Set up browser
