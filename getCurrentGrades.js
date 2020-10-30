@@ -25,7 +25,11 @@ module.exports.getSchoolUrl = function(schoolDomain,pageType){
 }
 
 module.exports.getSchoolFromEmail = function(email){
-    return email.substring(email.indexOf("@"))
+    return email.substring(email.indexOf("@")+1)
+}
+
+module.exports.getIdFormUrl = function(url){
+    return url.split('&').map(el=>el.split('=')).find((el)=>el[0]=="studentid")[1]
 }
 
 //This is a helper function to get the list of assignments on a page
@@ -44,7 +48,7 @@ async function scrapeAssignments(page) {
                     assignData["Grade"] = node.childNodes[11].childNodes[2].textContent.replace(/\s/g, '')
                     assignData["Weighting"] = node.childNodes[11].childNodes[1].textContent.replace(/\s/g, '')
                 }
-                var commentText = node.childNodes[9].childNodes[3].innerText
+                var commentText = node.childNodes[9].childNodes[node.childNodes[9].childNodes.length-2].innerText
                 commentText = commentText.substring(commentText.indexOf("Close") + 5).trim()
                 if (commentText != "")
                     assignData["Comment"] = commentText;
@@ -109,7 +113,7 @@ module.exports.getCurrentGrades = async function (email, pass) {
     pass = encodeURIComponent(pass);
     //Set up browser
     const browser = await module.exports.createBrowser({
-        // headless: false, // launch headful mode
+        headless: false, // launch headful mode
         // slowMo: 1000, // slow down puppeteer script so that it's easier to follow visually
     })
     if (browser == null) {
@@ -127,7 +131,7 @@ module.exports.getCurrentGrades = async function (email, pass) {
         return { Status: "Invalid" };
     }
     //Navigate to the Course Summary
-    const courseSummaryTabURL = `${module.exports.getSchoolUrl(schoolDomain,"main")}?tab1=studentdata&tab2=gradebook&tab3=coursesummary&action=form&studentid=${email.split("%40")[0]}`;
+    const courseSummaryTabURL = `${module.exports.getSchoolUrl(schoolDomain,"main")}?tab1=studentdata&tab2=gradebook&tab3=coursesummary&action=form&studentid=${module.exports.getIdFormUrl(page.url())}`;
     await page.goto(courseSummaryTabURL, { waitUntil: 'domcontentloaded' });
             //await page.evaluate(text => [...document.querySelectorAll('*')].find(e => e.textContent.trim() === text).click(), "Gradebook");
             //await page.waitForNavigation({ waitUntil: 'domcontentloaded' })
