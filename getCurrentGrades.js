@@ -1,6 +1,29 @@
 const puppeteer = require('puppeteer');
 const $ = require('cheerio');
 
+module.exports.urlMaster={
+    SBHS:{
+        root:"https://students.sbschools.org/genesis",
+        loginPage:"/sis/view?gohome=true",
+        securityCheck:"/sis/j_security_check",
+        main:"/parents"
+    },
+    MCVTS:{
+        root:"https://students.genesisedu.com/mcvts",
+        loginPage:"/sis/view?gohome=true",
+        securityCheck:"/sis/j_security_check",
+        main:"/parents"
+    },
+}
+
+module.exports.getSchoolUrl = function(school,pageType){
+    const root = module.exports.urlMaster[school]?module.exports.urlMaster[school]["root"]:module.exports.urlMaster["SBHS"]["root"]
+    if(!pageType || pageType == "root")
+        return root
+    const page = module.exports.urlMaster[school]?module.exports.urlMaster[school][pageType]:module.exports.urlMaster["SBHS"][pageType]
+    return root+page
+}
+
 //This is a helper function to get the list of assignments on a page
 async function scrapeAssignments(page) {
     var list = await page.evaluate(() => {
@@ -64,25 +87,25 @@ module.exports.createPage = async function(browser){
     return page
 }
 
-module.exports.openAndSignIntoGenesis = async function (page, emailURIencoded, passURIencoded){
-    const genesisHomePageURL = 'https://students.sbschools.org/genesis/parents?gohome=true';
+module.exports.openAndSignIntoGenesis = async function (page, emailURIencoded, passURIencoded, school){
+    const genesisHomePageURL = module.exports.getSchoolUrl(school,"loginPage");
     await page.goto(genesisHomePageURL, { waitUntil: 'domcontentloaded' });
-    const loginURL = 'https://students.sbschools.org/genesis/j_security_check?j_username=' + emailURIencoded + '&j_password=' + passURIencoded;
+    const loginURL = `${module.exports.getSchoolUrl(school,"securityCheck")}?j_username=${emailURIencoded}&j_password=${passURIencoded}`;
     await page.goto(loginURL, { waitUntil: 'domcontentloaded' });
 }
 
-module.exports.checkSignIn = async function (page){
-    return (page.url() != "https://students.sbschools.org/genesis/parents?gohome=true" && await $('.sectionTitle', await page.content()).text().trim() != "Invalid user name or password.  Please try again.")
+module.exports.checkSignIn = async function (page, school){
+    return (page.url() != module.exports.getSchoolUrl(school,"loginPage") && await $('.sectionTitle', await page.content()).text().trim() != "Invalid user name or password.  Please try again.")
 }
 
 //formerly getData(email,pass)
-module.exports.getCurrentGrades = async function (email, pass) {
+module.exports.getCurrentGrades = async function (email, pass, school) {
     email = encodeURIComponent(email);
     pass = encodeURIComponent(pass);
     //Set up browser
     const browser = await module.exports.createBrowser({
-        //headless: false, // launch headful mode
-        //slowMo: 1000, // slow down puppeteer script so that it's easier to follow visually
+        // headless: false, // launch headful mode
+        // slowMo: 1000, // slow down puppeteer script so that it's easier to follow visually
     })
     if (browser == null) {
         console.log("Chrome Crashed----------------------------------------------------------")
@@ -99,7 +122,7 @@ module.exports.getCurrentGrades = async function (email, pass) {
         return { Status: "Invalid" };
     }
     //Navigate to the Course Summary
-    const courseSummaryTabURL = "https://students.sbschools.org/genesis/parents?tab1=studentdata&tab2=gradebook&tab3=coursesummary&action=form&studentid=" + email.split("%40")[0];
+    const courseSummaryTabURL = `${module.exports.getSchoolUrl(school,"main")}?tab1=studentdata&tab2=gradebook&tab3=coursesummary&action=form&studentid=${email.split("%40")[0]}`;
     await page.goto(courseSummaryTabURL, { waitUntil: 'domcontentloaded' });
             //await page.evaluate(text => [...document.querySelectorAll('*')].find(e => e.textContent.trim() === text).click(), "Gradebook");
             //await page.waitForNavigation({ waitUntil: 'domcontentloaded' })

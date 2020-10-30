@@ -1,5 +1,5 @@
 # GradeViewGetCurrentGrades
-A helper function used in GradeView server code. It is used frequently and is central to the service so it was turned into a git submodule
+Helper functions used in GradeView server code. It is used frequently and is central to the service so it was turned into a git submodule
 
 ### Used here:
 - [GradeView](https://github.com/KihtrakRaknas/GradeView)
