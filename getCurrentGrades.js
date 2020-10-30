@@ -113,7 +113,7 @@ module.exports.getCurrentGrades = async function (email, pass) {
     pass = encodeURIComponent(pass);
     //Set up browser
     const browser = await module.exports.createBrowser({
-        headless: false, // launch headful mode
+        // headless: false, // launch headful mode
         // slowMo: 1000, // slow down puppeteer script so that it's easier to follow visually
     })
     if (browser == null) {
