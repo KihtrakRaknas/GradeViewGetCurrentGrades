@@ -8,7 +8,7 @@ module.exports.urlMaster={
         securityCheck:"/sis/j_security_check",
         main:"/parents"
     },
-    "MCVTS.org":{
+    "mcvts.net":{
         root:"https://students.genesisedu.com/mcvts",
         loginPage:"/sis/view?gohome=true",
         securityCheck:"/sis/j_security_check",
