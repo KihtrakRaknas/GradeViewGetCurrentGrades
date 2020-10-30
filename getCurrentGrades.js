@@ -118,9 +118,9 @@ module.exports.getCurrentGrades = async function (email, pass) {
     }
     const page = await module.exports.createPage(browser)
     //Navigate to the site and sign in
-    await module.exports.openAndSignIntoGenesis(page,email,pass)
+    await module.exports.openAndSignIntoGenesis(page,email,pass,schoolDomain)
     //Verify Sign in was successful
-    const signedIn = await module.exports.checkSignIn(page)
+    const signedIn = await module.exports.checkSignIn(page,schoolDomain)
     if (!signedIn) {
         await browser.close();
         console.log("BAD user||pass")
