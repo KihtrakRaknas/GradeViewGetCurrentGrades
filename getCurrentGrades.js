@@ -24,10 +24,6 @@ module.exports.getSchoolUrl = function(schoolDomain,pageType){
     return root+page
 }
 
-module.exports.getSchoolFromEmail = function(email){
-    return email.substring(email.indexOf("@")+1)
-}
-
 module.exports.getIdFormUrl = function(url){
     return url.split('&').map(el=>el.split('=')).find((el)=>el[0]=="studentid")[1]
 }
@@ -107,8 +103,7 @@ module.exports.checkSignIn = async function (page, schoolDomain){
 }
 
 //formerly getData(email,pass)
-module.exports.getCurrentGrades = async function (email, pass) {
-    const schoolDomain = module.exports.getSchoolFromEmail(email)
+module.exports.getCurrentGrades = async function (email, pass, schoolDomain) {
     email = encodeURIComponent(email);
     pass = encodeURIComponent(pass);
     //Set up browser
