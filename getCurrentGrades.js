@@ -49,7 +49,12 @@ async function scrapeAssignments(page) {
                 var assignData = {};
                 assignData["Date"] = node.childNodes[3].innerText;
                 assignData["Category"] = node.childNodes[7].innerText
-                assignData["Name"] = node.childNodes[9].innerText;
+                var titleArr = (""+node.childNodes[9].innerText).split("\n")
+                assignData["Name"] = titleArr[0];
+                if(titleArr.length>1){
+                    titleArr.shift()
+                    assignData["Subtitle"] = titleArr.join("\n");
+                }
                 if (node.childNodes[11].childNodes.length <= 3) {
                     assignData["Grade"] = node.childNodes[11].childNodes[0].textContent.replace(/\s/g, '')
                 } else {
