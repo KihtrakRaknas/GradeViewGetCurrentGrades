@@ -24,6 +24,18 @@ module.exports.getSchoolUrl = function(schoolDomain,pageType){
     return root+page
 }
 
+module.exports.postFixUsername = function(username,school){
+    if(username.includes('@'))
+        return username
+    return username+"@noEmail@"+school
+}
+
+module.exports.retriveJustUsername = function(username){
+    if(!username.includes('@noEmail@'))
+        return username
+    return username.split("@noEmail@")[0]
+}
+
 module.exports.getIdFormUrl = function(url){
     return url.split('&').map(el=>el.split('=')).find((el)=>el[0]=="studentid")[1]
 }
