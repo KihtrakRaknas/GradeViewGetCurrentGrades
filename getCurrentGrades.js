@@ -9,7 +9,7 @@ module.exports.urlMaster={
         main:"/parents"
     },
     "mcvts.net":{
-        root:"https://students.genesisedu.com/mcvts",
+        root:"https://parents.genesisedu.com/mcvts",
         loginPage:"/sis/view?gohome=true",
         securityCheck:"/sis/j_security_check",
         main:"/parents"
