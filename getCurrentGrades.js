@@ -73,6 +73,51 @@ async function scrapeAssignments(page) {
     return list;
 }
 
+function getPercentFromStr(percent){
+    let finalPercent = percent.replace(/[^\d.%]/g, '')
+    if(!finalPercent){
+        switch(percent) {
+          case "A+":
+            finalPercent = "100%"
+            break;
+          case "A":
+            finalPercent = "96%"
+            break;
+          case "A-":
+            finalPercent = "92%"
+            break;
+          case "B+":
+            finalPercent = "89%"
+            break;
+          case "B":
+            finalPercent = "86%"
+            break;
+          case "B-":
+            finalPercent = "82%"
+            break;
+          case "C+":
+            finalPercent = "79%"
+            break;
+          case "C":
+            finalPercent = "76%"
+            break;
+          case "C-":
+            finalPercent = "72%"
+            break;
+          case "D+":
+            finalPercent = "69%"
+            break;
+          case "D":
+            finalPercent = "66%"
+            break;
+          case "F":
+            finalPercent = "65%"
+            break;
+        } 
+    }
+    return finalPercent
+}
+
 module.exports.createBrowser = async function(params){
     const browser = await puppeteer.launch({
         args: [
@@ -125,8 +170,8 @@ module.exports.getCurrentGrades = async function (email, pass, schoolDomain) {
     pass = encodeURIComponent(pass);
     //Set up browser
     const browser = await module.exports.createBrowser({
-        // headless: false, // launch headful mode
-        // slowMo: 1000, // slow down puppeteer script so that it's easier to follow visually
+        //  headless: false, // launch headful mode
+        //  slowMo: 1000, // slow down puppeteer script so that it's easier to follow visually
     })
     if (browser == null) {
         console.log("Chrome Crashed----------------------------------------------------------")
@@ -197,7 +242,8 @@ module.exports.getCurrentGrades = async function (email, pass, schoolDomain) {
                 if (!grades[ClassName][defaultMP])
                     grades[ClassName][defaultMP] = {}
                 grades[ClassName][defaultMP]["Assignments"] = await scrapeAssignments(page);
-                grades[ClassName][defaultMP]["avg"] = await page.evaluate(() => document.getElementsByTagName("b")[0].innerText.replace(/\s+/g, '').replace(/[^\d.%]/g, ''))
+                const percent = await page.evaluate(() => document.getElementsByTagName("b")[0].innerText.replace(/\s+/g, ''))
+                grades[ClassName][defaultMP]["avg"] = getPercentFromStr(percent);
             }
             //Loop though the remaining marking periods
             for (var indivMarkingPeriod of markingPeriods) {
@@ -235,7 +281,8 @@ module.exports.getCurrentGrades = async function (email, pass, schoolDomain) {
                         if (!grades[ClassName][indivMarkingPeriod])
                             grades[ClassName][indivMarkingPeriod] = {}
                         grades[ClassName][indivMarkingPeriod]["Assignments"] = await scrapeAssignments(page);
-                        grades[ClassName][indivMarkingPeriod]["avg"] = await page.evaluate(() => document.getElementsByTagName("b")[0].innerText.replace(/\s+/g, '').replace(/[^\d.%]/g, ''))
+                        const percent = await page.evaluate(() => document.getElementsByTagName("b")[0].innerText.replace(/\s+/g, ''))
+                        grades[ClassName][indivMarkingPeriod]["avg"] = getPercentFromStr(percent);
                     }
                 }
             }
