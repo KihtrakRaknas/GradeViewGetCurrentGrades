@@ -5,3 +5,5 @@ package-lock.json
 server.js
 .env
 yarn.lock
+cheerioResults.json
+puppeteerResults.json
