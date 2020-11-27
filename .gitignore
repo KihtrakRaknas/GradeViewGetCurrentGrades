@@ -7,3 +7,6 @@ server.js
 yarn.lock
 cheerioResults.json
 puppeteerResults.json
+afterSignIn.html
+rightAfterSignIn.html
+cheerioWebScrape.mjs
