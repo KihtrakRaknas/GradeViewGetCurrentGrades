@@ -1,10 +1,5 @@
-const NFC = import("node-fetch-cookies");
+const fetch = require("node-fetch")
 const $ = require('cheerio');
-
-module.exports.headerDefault={
-    headers: { 'content-type': 'application/x-www-form-urlencoded'},
-    method: 'get',
-}
 
 module.exports.urlMaster={
     "sbstudents.org":{
@@ -41,8 +36,9 @@ module.exports.retriveJustUsername = function(username){
     return username.split("@noEmail@")[0]
 }
 
-module.exports.getIdFormUrl = function(url){
-    return url.split('&').map(el=>el.split('=')).find((el)=>el[0]=="studentid")[1]
+module.exports.getIdFromHTML = function(body){
+    console.log($(`#fldStudent`,body))
+    return $(`#fldStudent`,body).val()
 }
 
 //This is a helper function to get the list of assignments on a page
@@ -173,11 +169,12 @@ module.exports.createPage = async function(browser){
     return page
 }
 
-module.exports.openAndSignIntoGenesis = async function (cookieJar, emailURIencoded, passURIencoded, schoolDomain){
-    const {fetch} = await NFC;
+module.exports.openAndSignIntoGenesis = async function (emailURIencoded, passURIencoded, schoolDomain){
     const loginURL = `${module.exports.getSchoolUrl(schoolDomain,"securityCheck")}?j_username=${emailURIencoded}&j_password=${passURIencoded}`;
-    const response = await fetch(cookieJar, loginURL, {...module.exports.headerDefault,method:"post"})
-    return ({url:response.url,html:await response.text()})
+    const cookieResponse = await fetch(loginURL, {...module.exports.headerDefault,method:"post"})
+    const cookieJar = cookieResponse.headers.raw()['set-cookie'].map(e=>e.split(";")[0]).join("; ")
+    const response = await fetch(loginURL, {headers: { 'content-type': 'application/x-www-form-urlencoded', cookie:cookieJar},method:"post"}) //Still don't know why this is necessary but it is
+    return ({html:await response.text(),cookie:cookieJar})
 }
 
 module.exports.checkSignIn = function (resObj,schoolDomain){
@@ -185,8 +182,10 @@ module.exports.checkSignIn = function (resObj,schoolDomain){
 }
 
 module.exports.openPage = async function (cookieJar, pageUrl){
-    const {fetch} = await NFC;
-    return await fetch(cookieJar, pageUrl, module.exports.headerDefault).then(response=>response.text())
+    return await fetch(pageUrl, {
+        headers: { 'content-type': 'application/x-www-form-urlencoded', cookie:cookieJar},
+        method: 'get',
+    }).then(response=>response.text())
 }
 
 //formerly getData(email,pass)
@@ -194,18 +193,16 @@ module.exports.getCurrentGrades = async function (email, pass, schoolDomain) {
     email = encodeURIComponent(email);
     pass = encodeURIComponent(pass);
     //Navigate to the site and sign in
-    const {CookieJar} = await NFC;
-    const cookieJar = new CookieJar();
-    const signInInfo = await module.exports.openAndSignIntoGenesis(cookieJar,email,pass,schoolDomain)
+    const signInInfo = await module.exports.openAndSignIntoGenesis(email,pass,schoolDomain)
+    const cookieJar = signInInfo.cookie
     //Verify Sign in was successful
     const signedIn = await module.exports.checkSignIn(signInInfo,schoolDomain)
     if (!signedIn) {
-        await browser.close();
         console.log("BAD user||pass")
         return { Status: "Invalid" };
     }
     //Navigate to the Course Summary
-    const courseSummaryTabURL = `${module.exports.getSchoolUrl(schoolDomain,"main")}?tab1=studentdata&tab2=gradebook&tab3=coursesummary&action=form&studentid=${module.exports.getIdFormUrl(signInInfo.url)}`;
+    const courseSummaryTabURL = `${module.exports.getSchoolUrl(schoolDomain,"main")}?tab1=studentdata&tab2=gradebook&tab3=coursesummary&action=form&studentid=${module.exports.getIdFromHTML(signInInfo.html)}`;
     const courseSummaryLandingContent = await module.exports.openPage(cookieJar,courseSummaryTabURL)
     //Get an array of the classes the student has
     var grades = {};
@@ -214,7 +211,6 @@ module.exports.getCurrentGrades = async function (email, pass, schoolDomain) {
         classes[i] = $(this).val();
     })
     if(classes.length==0){
-        await browser.close();
         console.log("No AUP??? - No Courses Found")
         return { Status: "No Courses Found" };
     }
@@ -222,7 +218,7 @@ module.exports.getCurrentGrades = async function (email, pass, schoolDomain) {
     //Loop through the classes the student has taken
     let classPromises = []
     for (let indivClass of classes) {
-        classPromises.push(await new Promise(async (res)=>{
+        classPromises.push(new Promise(async (res)=>{
             //Select the class
             const [courseCode, courseSection]=indivClass.split(":")
             const coursePageUrl = `${courseSummaryTabURL}&action=form&courseCode=${courseCode}&courseSection=${courseSection}`
