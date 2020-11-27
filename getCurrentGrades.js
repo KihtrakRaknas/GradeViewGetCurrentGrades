@@ -37,7 +37,6 @@ module.exports.retriveJustUsername = function(username){
 }
 
 module.exports.getIdFromHTML = function(body){
-    console.log($(`#fldStudent`,body))
     return $(`#fldStudent`,body).val()
 }
 
@@ -71,10 +70,8 @@ async function scrapeAssignments(html) {
                 assignData["Grade"] = $(gradeColumn.contents().get(0)).text().replace(/\s/g, '')
                 //assignData["Grade"] = node.childNodes[11].childNodes[0].textContent.replace(/\s/g, '')
             } else {
-                console.log("Weighting")
                 assignData["Grade"] = $(gradeColumn.contents().get(2)).text().replace(/\s/g, '')
                 assignData["Weighting"] = $(gradeColumn.contents().get(1)).text().replace(/\s/g, '')
-                console.log(assignData["Weighting"])
                 //assignData["Grade"] = node.childNodes[11].childNodes[2].textContent.replace(/\s/g, '')
                 //assignData["Weighting"] = node.childNodes[11].childNodes[1].textContent.replace(/\s/g, '')
             }
@@ -222,7 +219,6 @@ module.exports.getCurrentGrades = async function (email, pass, schoolDomain) {
             //Select the class
             const [courseCode, courseSection]=indivClass.split(":")
             const coursePageUrl = `${courseSummaryTabURL}&action=form&courseCode=${courseCode}&courseSection=${courseSection}`
-            console.log(coursePageUrl)
             let coursePageContent = await module.exports.openPage(cookieJar,coursePageUrl)
             //Get an array of Marking Periods that the class has grades for
             const markingPeriods = []
@@ -233,7 +229,6 @@ module.exports.getCurrentGrades = async function (email, pass, schoolDomain) {
             markingPeriods.splice(markingPeriods.indexOf(defaultMP), 1);
             //Get class name and teacher
             const className = $(`[value="${indivClass}"]`,coursePageContent).text()
-            console.log("className: "+className+"done")
             if (!grades[className])
                 grades[className] = {}
             if (!grades[className]["teacher"]) {
@@ -241,7 +236,6 @@ module.exports.getCurrentGrades = async function (email, pass, schoolDomain) {
             }
             //Check if the marking period has started yet
             const timeStr = $(`.list:first-child>tbody>tr>td>div>span`,coursePageContent).first().text().match(new RegExp('[0-1]?[0-9]/[0-3]?[0-9]/[0-9][0-9]'))[0]
-            console.log(timeStr)
             if (timeStr ? new Date().getTime() - new Date(timeStr).getTime() > 0 : false ) {
                 if (!grades[className][defaultMP])
                     grades[className][defaultMP] = {}
@@ -260,7 +254,6 @@ module.exports.getCurrentGrades = async function (email, pass, schoolDomain) {
                     }
                     //Check if the marking period has started yet
                     const timeStr = $(`.list:first-child>tbody>tr>td>div>span`,coursePageContent).first().text().match(new RegExp('[0-1]?[0-9]/[0-3]?[0-9]/[0-9][0-9]'))[0]
-                    console.log(timeStr)
                     if (timeStr ? new Date().getTime() - new Date(timeStr).getTime() > 0 : false ) {
                         if (!grades[className][indivMarkingPeriod])
                             grades[className][indivMarkingPeriod] = {}
