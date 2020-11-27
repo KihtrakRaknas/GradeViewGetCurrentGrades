@@ -1,5 +1,5 @@
 const fetch = require("node-fetch")
-const $ = require('cheerio');
+const cheerio = require('cheerio')
 
 module.exports.urlMaster={
     "sbstudents.org":{
@@ -36,16 +36,16 @@ module.exports.retriveJustUsername = function(username){
     return username.split("@noEmail@")[0]
 }
 
-module.exports.getIdFromHTML = function(body){
-    return $(`#fldStudent`,body).val()
+module.exports.getIdFromHTML = function($){
+    return $(`#fldStudent`).val()
 }
 
 //This is a helper function to get the list of assignments on a page
-async function scrapeAssignments(html) {
+async function scrapeAssignments($) {
     const list = []
-    $(`.notecard>tbody>tr>td>div>table.list>tbody>tr:not(.listheading)[class]`,html).each(function(i,el) {
+    $(`.notecard>tbody>tr>td>div>table.list>tbody>tr:not(.listheading)[class]`).each(function(i,el) {
         var assignData = {};
-        const tds = $("td.cellLeft",$(el).html())
+        const tds = $("td.cellLeft",$(el).html()) // err?
         if(tds.children().length>1){
             assignData["Date"] = $(tds.get(1)).text().trim().replace(/ /g, '')
             //assignData["Date"] = node.childNodes[3].innerText;
@@ -171,11 +171,11 @@ module.exports.openAndSignIntoGenesis = async function (emailURIencoded, passURI
     const cookieResponse = await fetch(loginURL, {...module.exports.headerDefault,method:"post"})
     const cookieJar = cookieResponse.headers.raw()['set-cookie'].map(e=>e.split(";")[0]).join("; ")
     const response = await fetch(loginURL, {headers: { 'content-type': 'application/x-www-form-urlencoded', cookie:cookieJar},method:"post"}) //Still don't know why this is necessary but it is
-    return ({html:await response.text(),cookie:cookieJar})
+    return ({$:cheerio.load(await response.text()),cookie:cookieJar})
 }
 
 module.exports.checkSignIn = function (resObj,schoolDomain){
-    return (resObj.url != module.exports.getSchoolUrl(schoolDomain,"loginPage") && $('.sectionTitle', resObj.html).text().trim() != "Invalid user name or password.  Please try again.")
+    return (resObj.url != module.exports.getSchoolUrl(schoolDomain,"loginPage") && resObj.$('.sectionTitle').text().trim() != "Invalid user name or password.  Please try again.")
 }
 
 module.exports.openPage = async function (cookieJar, pageUrl){
@@ -183,6 +183,23 @@ module.exports.openPage = async function (cookieJar, pageUrl){
         headers: { 'content-type': 'application/x-www-form-urlencoded', cookie:cookieJar},
         method: 'get',
     }).then(response=>response.text())
+}
+
+async function updateGradesWithMP(grades, className, indivMarkingPeriod, $){
+    if (!grades[className])
+        grades[className] = {}
+    if (!grades[className]["teacher"]) {
+        grades[className]["teacher"] = $(`.list:first-child>tbody>tr.listheading+tr>td:nth-child(3)`).text()
+    }
+    //Check if the marking period has started yet
+    const timeStr = $(`.list:first-child>tbody>tr>td>div>span`).first().text().match(new RegExp('[0-1]?[0-9]/[0-3]?[0-9]/[0-9][0-9]'))[0]
+    if (timeStr ? new Date().getTime() - new Date(timeStr).getTime() > 0 : false ) {
+        if (!grades[className][indivMarkingPeriod])
+            grades[className][indivMarkingPeriod] = {}
+        grades[className][indivMarkingPeriod]["Assignments"] = await scrapeAssignments($);
+        const percent = $($("div>b").get(0)).text().replace(/\s+/g, '')
+        grades[className][indivMarkingPeriod]["avg"] = getPercentFromStr(percent)
+    }
 }
 
 //formerly getData(email,pass)
@@ -199,13 +216,13 @@ module.exports.getCurrentGrades = async function (email, pass, schoolDomain) {
         return { Status: "Invalid" };
     }
     //Navigate to the Course Summary
-    const courseSummaryTabURL = `${module.exports.getSchoolUrl(schoolDomain,"main")}?tab1=studentdata&tab2=gradebook&tab3=coursesummary&action=form&studentid=${module.exports.getIdFromHTML(signInInfo.html)}`;
+    const courseSummaryTabURL = `${module.exports.getSchoolUrl(schoolDomain,"main")}?tab1=studentdata&tab2=gradebook&tab3=coursesummary&action=form&studentid=${module.exports.getIdFromHTML(signInInfo.$)}`;
     const courseSummaryLandingContent = await module.exports.openPage(cookieJar,courseSummaryTabURL)
     //Get an array of the classes the student has
     var grades = {};
     const classes = []
-    $("#fldCourse>option",courseSummaryLandingContent).map(function(i) {
-        classes[i] = $(this).val();
+    cheerio("#fldCourse>option",courseSummaryLandingContent).map(function(i) {
+        classes[i] = cheerio(this).val();
     })
     if(classes.length==0){
         console.log("No AUP??? - No Courses Found")
@@ -215,56 +232,32 @@ module.exports.getCurrentGrades = async function (email, pass, schoolDomain) {
     //Loop through the classes the student has taken
     let classPromises = []
     for (let indivClass of classes) {
-        classPromises.push(new Promise(async (res)=>{
+        classPromises.push((async ()=>{
             //Select the class
             const [courseCode, courseSection]=indivClass.split(":")
             const coursePageUrl = `${courseSummaryTabURL}&action=form&courseCode=${courseCode}&courseSection=${courseSection}`
-            let coursePageContent = await module.exports.openPage(cookieJar,coursePageUrl)
+            const coursePageContent = await module.exports.openPage(cookieJar,coursePageUrl)
+            const $ = cheerio.load(coursePageContent)
             //Get an array of Marking Periods that the class has grades for
             const markingPeriods = []
-            $("#fldSwitchMP>option",coursePageContent).map(function(i) {
+            $("#fldSwitchMP>option").map(function(i) {
                 markingPeriods[i] = $(this).val();
             })
-            const defaultMP = $("#fldSwitchMP",coursePageContent).val();
+            const defaultMP = $("#fldSwitchMP").val();
             markingPeriods.splice(markingPeriods.indexOf(defaultMP), 1);
-            //Get class name and teacher
-            const className = $(`[value="${indivClass}"]`,coursePageContent).text()
-            if (!grades[className])
-                grades[className] = {}
-            if (!grades[className]["teacher"]) {
-                grades[className]["teacher"] = $(`.list:first-child>tbody>tr.listheading+tr>td:nth-child(3)`,coursePageContent).text()
-            }
-            //Check if the marking period has started yet
-            const timeStr = $(`.list:first-child>tbody>tr>td>div>span`,coursePageContent).first().text().match(new RegExp('[0-1]?[0-9]/[0-3]?[0-9]/[0-9][0-9]'))[0]
-            if (timeStr ? new Date().getTime() - new Date(timeStr).getTime() > 0 : false ) {
-                if (!grades[className][defaultMP])
-                    grades[className][defaultMP] = {}
-                grades[className][defaultMP]["Assignments"] = await scrapeAssignments(coursePageContent);
-                const percent = $($("div>b",coursePageContent).get(0)).text().replace(/\s+/g, '')
-                grades[className][defaultMP]["avg"] = getPercentFromStr(percent)
-            }
-            //Loop though the remaining marking periods
+            const className = $(`[value="${indivClass}"]`).text()
+            updateGradesPromises = []
+            updateGradesPromises.push(updateGradesWithMP(grades,className,defaultMP,$))
             for (var indivMarkingPeriod of markingPeriods) {
                 if (indivMarkingPeriod) {
-                    //Switch to the new marking period
-                    let coursePageContent = await module.exports.openPage(cookieJar,`${coursePageUrl}&mp=${indivMarkingPeriod}`)
-                    //If the teacher wasn't already added, try to add it now
-                    if (!grades[className]["teacher"]) {
-                        grades[className]["teacher"] = $(`.list:first-child>tbody>tr.listheading+tr>td:nth-child(3)`,coursePageContent).text()
-                    }
-                    //Check if the marking period has started yet
-                    const timeStr = $(`.list:first-child>tbody>tr>td>div>span`,coursePageContent).first().text().match(new RegExp('[0-1]?[0-9]/[0-3]?[0-9]/[0-9][0-9]'))[0]
-                    if (timeStr ? new Date().getTime() - new Date(timeStr).getTime() > 0 : false ) {
-                        if (!grades[className][indivMarkingPeriod])
-                            grades[className][indivMarkingPeriod] = {}
-                        grades[className][indivMarkingPeriod]["Assignments"] = await scrapeAssignments(coursePageContent);
-                        const percent = $($("div>b",coursePageContent).get(0)).text().replace(/\s+/g, '')
-                        grades[className][indivMarkingPeriod]["avg"] = getPercentFromStr(percent)
-                    }
+                    updateGradesPromises.push((async(indivMarkingPeriodParam)=>{
+                        const newCoursePageContent = await module.exports.openPage(cookieJar,`${coursePageUrl}&mp=${indivMarkingPeriodParam}`)
+                        await updateGradesWithMP(grades,className,indivMarkingPeriodParam,cheerio.load(newCoursePageContent))
+                    })(indivMarkingPeriod))
                 }
             }
-            res()
-        }))
+            await Promise.all(updateGradesPromises)
+        })())
     }
     await Promise.all(classPromises)
     grades["Status"] = "Completed";
