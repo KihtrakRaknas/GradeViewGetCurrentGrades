@@ -1,3 +1,4 @@
+const pRetry = require('p-retry')
 const fetch = require("node-fetch")
 const cheerio = require('cheerio')
 
@@ -168,21 +169,29 @@ module.exports.createPage = async function(browser){
 
 module.exports.openAndSignIntoGenesis = async function (emailURIencoded, passURIencoded, schoolDomain){
     const loginURL = `${module.exports.getSchoolUrl(schoolDomain,"securityCheck")}?j_username=${emailURIencoded}&j_password=${passURIencoded}`;
-    const cookieResponse = await fetch(loginURL, {...module.exports.headerDefault,method:"post"})
+    let cookieResponse
+    try{
+        cookieResponse = await fetch(loginURL, {method:"post"})
+    }catch{
+        return {signedIn:false}
+    }
     const cookieJar = cookieResponse.headers.raw()['set-cookie'].map(e=>e.split(";")[0]).join("; ")
-    const response = await fetch(loginURL, {headers: { 'content-type': 'application/x-www-form-urlencoded', cookie:cookieJar},method:"post"}) //Still don't know why this is necessary but it is
-    return ({$:cheerio.load(await response.text()),cookie:cookieJar})
+    const response = await pRetry(async ()=> fetch(loginURL, {headers: { 'content-type': 'application/x-www-form-urlencoded', cookie:cookieJar},method:"post"}), {retries: 5}) //Still don't know why this is necessary but it is
+    const $ = cheerio.load(await response.text())
+    const signedIn = checkSignIn(response.url, $ ,schoolDomain)
+    return ({$,signedIn,cookie:cookieJar})
+
 }
 
-module.exports.checkSignIn = function (resObj,schoolDomain){
-    return (resObj.url != module.exports.getSchoolUrl(schoolDomain,"loginPage") && resObj.$('.sectionTitle').text().trim() != "Invalid user name or password.  Please try again.")
+function checkSignIn (url, $ ,schoolDomain){
+    return (url != module.exports.getSchoolUrl(schoolDomain,"loginPage") && $('.sectionTitle').text().trim() != "Invalid user name or password.  Please try again.")
 }
 
 module.exports.openPage = async function (cookieJar, pageUrl){
-    return await fetch(pageUrl, {
+    return await pRetry(async ()=> fetch(pageUrl, {
         headers: { 'content-type': 'application/x-www-form-urlencoded', cookie:cookieJar},
         method: 'get',
-    }).then(response=>response.text())
+    }),{retries: 5}).then(response=>response.text())
 }
 
 async function updateGradesWithMP(grades, className, indivMarkingPeriod, $){
@@ -192,26 +201,30 @@ async function updateGradesWithMP(grades, className, indivMarkingPeriod, $){
         grades[className]["teacher"] = $(`.list:first-child>tbody>tr.listheading+tr>td:nth-child(3)`).text()
     }
     //Check if the marking period has started yet
-    const timeStr = $(`.list:first-child>tbody>tr>td>div>span`).first().text().match(new RegExp('[0-1]?[0-9]/[0-3]?[0-9]/[0-9][0-9]'))[0]
-    if (timeStr ? new Date().getTime() - new Date(timeStr).getTime() > 0 : false ) {
-        if (!grades[className][indivMarkingPeriod])
-            grades[className][indivMarkingPeriod] = {}
-        grades[className][indivMarkingPeriod]["Assignments"] = await scrapeAssignments($);
-        const percent = $($("div>b").get(0)).text().replace(/\s+/g, '')
-        grades[className][indivMarkingPeriod]["avg"] = getPercentFromStr(percent)
+    try{
+        const timeStr = $(`.list:first-child>tbody>tr>td>div>span`).first().text().match(new RegExp('[0-1]?[0-9]/[0-3]?[0-9]/[0-9][0-9]'))[0]
+        if (timeStr ? new Date().getTime() - new Date(timeStr).getTime() > 0 : false ) {
+            if (!grades[className][indivMarkingPeriod])
+                grades[className][indivMarkingPeriod] = {}
+            grades[className][indivMarkingPeriod]["Assignments"] = await scrapeAssignments($);
+            const percent = $($("div>b").get(0)).text().replace(/\s+/g, '')
+            grades[className][indivMarkingPeriod]["avg"] = getPercentFromStr(percent)
+        }
+    }catch{
+        console.log(`Class: ${className} MP: ${indivMarkingPeriod} -- MP was unscrapable`)
     }
 }
 
 //formerly getData(email,pass)
 module.exports.getCurrentGrades = async function (email, pass, schoolDomain) {
+    const grades = {};
     email = encodeURIComponent(email);
     pass = encodeURIComponent(pass);
     //Navigate to the site and sign in
     const signInInfo = await module.exports.openAndSignIntoGenesis(email,pass,schoolDomain)
     const cookieJar = signInInfo.cookie
     //Verify Sign in was successful
-    const signedIn = await module.exports.checkSignIn(signInInfo,schoolDomain)
-    if (!signedIn) {
+    if (!signInInfo.signedIn) {
         console.log("BAD user||pass")
         return { Status: "Invalid" };
     }
@@ -219,7 +232,6 @@ module.exports.getCurrentGrades = async function (email, pass, schoolDomain) {
     const courseSummaryTabURL = `${module.exports.getSchoolUrl(schoolDomain,"main")}?tab1=studentdata&tab2=gradebook&tab3=coursesummary&action=form&studentid=${module.exports.getIdFromHTML(signInInfo.$)}`;
     const courseSummaryLandingContent = await module.exports.openPage(cookieJar,courseSummaryTabURL)
     //Get an array of the classes the student has
-    var grades = {};
     const classes = []
     cheerio("#fldCourse>option",courseSummaryLandingContent).map(function(i) {
         classes[i] = cheerio(this).val();
