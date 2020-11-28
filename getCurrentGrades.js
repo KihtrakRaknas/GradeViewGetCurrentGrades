@@ -132,41 +132,6 @@ function getPercentFromStr(percent){
     return finalPercent
 }
 
-module.exports.createBrowser = async function(params){
-    const browser = await puppeteer.launch({
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-accelerated-2d-canvas',
-            '--disable-gpu',
-            '--window-size=1920x1080',
-        ],
-        ...params
-    }).catch((err) => {
-        console.log(err)
-    });
-    return browser
-}
-
-module.exports.createPage = async function(browser){
-    //const page = await browser.newPage();
-    const page=(await browser.pages())[0]
-    await page.setUserAgent('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3738.0 Safari/537.36');
-    await page.setRequestInterception(true);
-    const blockedResourceTypes = ['image','media','font','texttrack','object','beacon','csp_report','imageset','stylesheet'];
-    const skippedResources = ['quantserve','adzerk','doubleclick','adition','exelator','sharethrough','cdn.api.twitter','google-analytics','googletagmanager','google','fontawesome','facebook','analytics','optimizely','clicktale','mixpanel','zedo','clicksor','tiqcdn'];
-    page.on('request', (req) => {
-        const requestUrl = req._url.split('?')[0].split('#')[0];
-        if (blockedResourceTypes.indexOf(req.resourceType()) !== -1 || skippedResources.some(resource => requestUrl.indexOf(resource) !== -1)) {
-            req.abort();
-        } else {
-            req.continue();
-        }
-    });
-    return page
-}
-
 module.exports.openAndSignIntoGenesis = async function (emailURIencoded, passURIencoded, schoolDomain){
     const loginURL = `${module.exports.getSchoolUrl(schoolDomain,"securityCheck")}?j_username=${emailURIencoded}&j_password=${passURIencoded}`;
     let cookieResponse
@@ -180,7 +145,6 @@ module.exports.openAndSignIntoGenesis = async function (emailURIencoded, passURI
     const $ = cheerio.load(await response.text())
     const signedIn = checkSignIn(response.url, $ ,schoolDomain)
     return ({$,signedIn,cookie:cookieJar})
-
 }
 
 function checkSignIn (url, $ ,schoolDomain){
