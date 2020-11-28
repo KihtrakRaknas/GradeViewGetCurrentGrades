@@ -175,7 +175,7 @@ async function updateGradesWithMP(grades, className, indivMarkingPeriod, $){
             grades[className][indivMarkingPeriod]["avg"] = getPercentFromStr(percent)
         }
     }catch(e){
-        console.log(e)
+        console.log(`Caught Error: ${e}`)
         console.log(`Class: ${className} MP: ${indivMarkingPeriod} -- MP was unscrapable`)
     }
 }
