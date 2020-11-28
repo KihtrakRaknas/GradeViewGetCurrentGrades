@@ -60,7 +60,7 @@ async function scrapeAssignments($) {
             titleStr=titleStr.trim()    
             var titleArr = (""+titleStr).split("\n")
             //var titleArr = (""+node.childNodes[9].innerText).split("\n")
-            assignData["Name"] = titleArr[0];
+            assignData["Name"] = titleArr[0].replace(/\s+/g, ' ');
             if(titleArr.length>1){
                 titleArr.shift()
                 assignData["Subtitle"] = titleArr.join("\n");
