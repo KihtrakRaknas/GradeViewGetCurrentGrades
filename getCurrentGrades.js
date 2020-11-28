@@ -60,7 +60,7 @@ async function scrapeAssignments($) {
             titleStr=titleStr.trim()    
             var titleArr = (""+titleStr).split("\n")
             //var titleArr = (""+node.childNodes[9].innerText).split("\n")
-            assignData["Name"] = titleArr[0].replace(/\s+/g, ' ');
+            assignData["Name"] = (""+titleArr[0]).replace(/\s+/g, ' ');
             if(titleArr.length>1){
                 titleArr.shift()
                 assignData["Subtitle"] = titleArr.join("\n");
@@ -174,7 +174,8 @@ async function updateGradesWithMP(grades, className, indivMarkingPeriod, $){
             const percent = $($("div>b").get(0)).text().replace(/\s+/g, '')
             grades[className][indivMarkingPeriod]["avg"] = getPercentFromStr(percent)
         }
-    }catch{
+    }catch(e){
+        console.log(e)
         console.log(`Class: ${className} MP: ${indivMarkingPeriod} -- MP was unscrapable`)
     }
 }
