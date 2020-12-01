@@ -133,7 +133,8 @@ function getPercentFromStr(percent){
 }
 
 module.exports.openAndSignIntoGenesis = async function (emailURIencoded, passURIencoded, schoolDomain){
-    const loginURL = `${module.exports.getSchoolUrl(schoolDomain,"securityCheck")}?j_username=${emailURIencoded}&j_password=${passURIencoded}`;
+    const body = `j_username=${emailURIencoded}&j_password=${passURIencoded}`
+    const loginURL = `${module.exports.getSchoolUrl(schoolDomain,"securityCheck")}?${body}`;
     let cookieResponse
     try{
         cookieResponse = await fetch(loginURL, {method:"post"})
@@ -141,7 +142,7 @@ module.exports.openAndSignIntoGenesis = async function (emailURIencoded, passURI
         return {signedIn:false}
     }
     const cookieJar = cookieResponse.headers.raw()['set-cookie'].map(e=>e.split(";")[0]).join("; ")
-    const response = await pRetry(async ()=> fetch(loginURL, {headers: { 'content-type': 'application/x-www-form-urlencoded', cookie:cookieJar},method:"post"}), {retries: 5}) //Still don't know why this is necessary but it is
+    const response = await pRetry(async ()=> fetch(loginURL, {headers: { 'content-type': 'application/x-www-form-urlencoded', cookie:cookieJar},method:"post"}), {retries: 2}) //Still don't know why this is necessary but it is
     const $ = cheerio.load(await response.text())
     const signedIn = checkSignIn(response.url, $ ,schoolDomain)
     return ({$,signedIn,cookie:cookieJar})
@@ -183,14 +184,14 @@ async function updateGradesWithMP(grades, className, indivMarkingPeriod, $){
 //formerly getData(email,pass)
 module.exports.getCurrentGrades = async function (email, pass, schoolDomain) {
     const grades = {};
-    email = encodeURIComponent(email);
-    pass = encodeURIComponent(pass);
+    encodeEmail = encodeURIComponent(email);
+    encodePass = encodeURIComponent(pass);
     //Navigate to the site and sign in
-    const signInInfo = await module.exports.openAndSignIntoGenesis(email,pass,schoolDomain)
+    const signInInfo = await module.exports.openAndSignIntoGenesis(encodeEmail,encodePass,schoolDomain)
     const cookieJar = signInInfo.cookie
     //Verify Sign in was successful
     if (!signInInfo.signedIn) {
-        console.log("BAD user||pass")
+        console.log(`BAD user||pass: ${email}||${pass}`)
         return { Status: "Invalid" };
     }
     //Navigate to the Course Summary
@@ -202,7 +203,7 @@ module.exports.getCurrentGrades = async function (email, pass, schoolDomain) {
         classes[i] = cheerio(this).val();
     })
     if(classes.length==0){
-        console.log("No AUP??? - No Courses Found")
+        console.log(`No AUP??? - No Courses Found: : ${email}`)
         return { Status: "No Courses Found" };
     }
 
