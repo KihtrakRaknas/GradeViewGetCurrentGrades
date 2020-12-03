@@ -141,20 +141,22 @@ module.exports.openAndSignIntoGenesis = async function (emailURIencoded, passURI
     try{
         await pRetry(async ()=>{
             cookieResponse = await fetch(loginURL, {method:"post"})
-            cookieJar = cookieResponse.headers.raw()['set-cookie'].map(e=>e.split(";")[0]).join("; ")
+            cookieJar = cookieResponse.headers.raw()['set-cookie']/*//*/.map(e=>e.split(";")[0]).join("; ")
             response = await fetch(loginURL, {headers: { 'content-type': 'application/x-www-form-urlencoded', cookie:cookieJar},method:"post"}) //Still don't know why this is necessary but it is
         }, {retries: 5})
     }catch{
         return {signedIn:false}
     }
-
-    const $ = cheerio.load(await response.text())
+    const resText = await response.text()
+    // console.log(`resulting text: ${resText}`)
+    const $ = cheerio.load(resText)
     const signedIn = checkSignIn(response.url, $ ,schoolDomain)
     return ({$,signedIn,cookie:cookieJar})
 }
 
 function checkSignIn (url, $ ,schoolDomain){
-    return (url != module.exports.getSchoolUrl(schoolDomain,"loginPage") && $('.sectionTitle').text().trim() != "Invalid user name or password.  Please try again.")
+    // console.log(`Number of children in body${$("body").children.length}`)
+    return ($("body").children.length>1 && url != module.exports.getSchoolUrl(schoolDomain,"loginPage") && $('.sectionTitle').text().trim() != "Invalid user name or password.  Please try again.")
 }
 
 module.exports.openPage = async function (cookieJar, pageUrl){
@@ -209,6 +211,8 @@ module.exports.getCurrentGrades = async function (email, pass, schoolDomain) {
     })
     if(classes.length==0){
         console.log(`No AUP??? - No Courses Found: : ${email}`)
+        // console.log(courseSummaryTabURL)
+        // require('fs').writeFileSync('last.html', courseSummaryLandingContent);
         return { Status: "No Courses Found" };
     }
 

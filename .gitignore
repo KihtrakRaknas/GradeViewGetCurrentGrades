@@ -10,3 +10,4 @@ puppeteerResults.json
 afterSignIn.html
 rightAfterSignIn.html
 cheerioWebScrape.mjs
+*.html
