@@ -136,13 +136,18 @@ module.exports.openAndSignIntoGenesis = async function (emailURIencoded, passURI
     const body = `j_username=${emailURIencoded}&j_password=${passURIencoded}`
     const loginURL = `${module.exports.getSchoolUrl(schoolDomain,"securityCheck")}?${body}`;
     let cookieResponse
+    let cookieJar
+    let response
     try{
-        cookieResponse = await fetch(loginURL, {method:"post"})
+        await pRetry(async ()=>{
+            cookieResponse = await fetch(loginURL, {method:"post"})
+            cookieJar = cookieResponse.headers.raw()['set-cookie'].map(e=>e.split(";")[0]).join("; ")
+            response = await fetch(loginURL, {headers: { 'content-type': 'application/x-www-form-urlencoded', cookie:cookieJar},method:"post"}) //Still don't know why this is necessary but it is
+        }, {retries: 5})
     }catch{
         return {signedIn:false}
     }
-    const cookieJar = cookieResponse.headers.raw()['set-cookie'].map(e=>e.split(";")[0]).join("; ")
-    const response = await pRetry(async ()=> fetch(loginURL, {headers: { 'content-type': 'application/x-www-form-urlencoded', cookie:cookieJar},method:"post"}), {retries: 2}) //Still don't know why this is necessary but it is
+
     const $ = cheerio.load(await response.text())
     const signedIn = checkSignIn(response.url, $ ,schoolDomain)
     return ({$,signedIn,cookie:cookieJar})
