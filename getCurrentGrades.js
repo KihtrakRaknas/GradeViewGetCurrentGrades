@@ -132,36 +132,41 @@ function getPercentFromStr(percent){
     return finalPercent
 }
 
+module.exports.fetchHeaderDefaults = {
+    'content-type': 'application/x-www-form-urlencoded', 
+    "User-Agent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3738.0 Safari/537.36"
+}
+
 module.exports.openAndSignIntoGenesis = async function (emailURIencoded, passURIencoded, schoolDomain){
     const body = `j_username=${emailURIencoded}&j_password=${passURIencoded}`
     const loginURL = `${module.exports.getSchoolUrl(schoolDomain,"securityCheck")}?${body}`;
+    const landingURL = module.exports.getSchoolUrl(schoolDomain,"loginPage")
     let cookieResponse
     let cookieJar
     let response
     try{
         await pRetry(async ()=>{
-            cookieResponse = await fetch(loginURL, {method:"post"})
-            cookieJar = cookieResponse.headers.raw()['set-cookie']/*//*/.map(e=>e.split(";")[0]).join("; ")
-            response = await fetch(loginURL, {headers: { 'content-type': 'application/x-www-form-urlencoded', cookie:cookieJar},method:"post"}) //Still don't know why this is necessary but it is
+            cookieResponse = await fetch(landingURL, {headers:{...module.exports.fetchHeaderDefaults}, method:"get"})
+            cookieJar = cookieResponse.headers.raw()['set-cookie'].map(e=>e.split(";")[0]).join("; ")
+            response = await fetch(loginURL, {headers:{...module.exports.fetchHeaderDefaults, cookie:cookieJar},method:"post"})
         }, {retries: 5})
     }catch{
         return {signedIn:false}
     }
     const resText = await response.text()
-    // console.log(`resulting text: ${resText}`)
     const $ = cheerio.load(resText)
     const signedIn = checkSignIn(response.url, $ ,schoolDomain)
     return ({$,signedIn,cookie:cookieJar})
 }
 
 function checkSignIn (url, $ ,schoolDomain){
-    // console.log(`Number of children in body${$("body").children.length}`)
-    return ($("body").children.length>1 && url != module.exports.getSchoolUrl(schoolDomain,"loginPage") && $('.sectionTitle').text().trim() != "Invalid user name or password.  Please try again.")
+    // console.log(`Size of HTML: ${$.html().length}`)
+    return ($.html().length>1000 &&url != module.exports.getSchoolUrl(schoolDomain,"loginPage") && $('.sectionTitle').text().trim() != "Invalid user name or password.  Please try again.")
 }
 
 module.exports.openPage = async function (cookieJar, pageUrl){
     return await pRetry(async ()=> fetch(pageUrl, {
-        headers: { 'content-type': 'application/x-www-form-urlencoded', cookie:cookieJar},
+        headers: { 'content-type': 'application/x-www-form-urlencoded', cookie:cookieJar, "User-Agent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3738.0 Safari/537.36"},
         method: 'get',
     }),{retries: 5}).then(response=>response.text())
 }
@@ -211,8 +216,8 @@ module.exports.getCurrentGrades = async function (email, pass, schoolDomain) {
     })
     if(classes.length==0){
         console.log(`No AUP??? - No Courses Found: : ${email}`)
-        // console.log(courseSummaryTabURL)
-        // require('fs').writeFileSync('last.html', courseSummaryLandingContent);
+        console.log(courseSummaryTabURL)
+        //require('fs').writeFileSync('last.html', courseSummaryLandingContent);
         return { Status: "No Courses Found" };
     }
 
