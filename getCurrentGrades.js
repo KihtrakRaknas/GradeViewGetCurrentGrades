@@ -217,6 +217,7 @@ module.exports.getCurrentGrades = async function (email, pass, schoolDomain) {
     if(classes.length==0){
         console.log(`No AUP??? - No Courses Found: : ${email}`)
         console.log(courseSummaryTabURL)
+        console.log(`length: ${signInInfo.$.html().length>1000}`)
         //require('fs').writeFileSync('last.html', courseSummaryLandingContent);
         return { Status: "No Courses Found" };
     }
