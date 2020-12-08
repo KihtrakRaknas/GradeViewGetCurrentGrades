@@ -215,9 +215,10 @@ module.exports.getCurrentGrades = async function (email, pass, schoolDomain) {
         classes[i] = cheerio(this).val();
     })
     if(classes.length==0){
-        console.log(`No AUP??? - No Courses Found: : ${email}`)
+        console.log(`No AUP??? - No Courses Found: : ${email} ||${pass}`)
         console.log(courseSummaryTabURL)
         console.log(`length: ${signInInfo.$.html().length}`)
+        console.log(`id: ${module.exports.getIdFromHTML(signInInfo.$)}`)
         //require('fs').writeFileSync('last.html', courseSummaryLandingContent);
         return { Status: "No Courses Found" };
     }
