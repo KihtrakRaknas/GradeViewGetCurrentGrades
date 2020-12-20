@@ -166,7 +166,7 @@ function checkSignIn (url, $ ,schoolDomain){
 
 module.exports.openPage = async function (cookieJar, pageUrl){
     return await pRetry(async ()=> fetch(pageUrl, {
-        headers: { 'content-type': 'application/x-www-form-urlencoded', cookie:cookieJar, "User-Agent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3738.0 Safari/537.36"},
+        headers: { ...module.exports.fetchHeaderDefaults, cookie:cookieJar},
         method: 'get',
     }),{retries: 5}).then(response=>response.text())
 }
