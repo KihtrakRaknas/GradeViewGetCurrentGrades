@@ -37,8 +37,11 @@ module.exports.retriveJustUsername = function(username){
     return username.split("@noEmail@")[0]
 }
 
-module.exports.getIdFromHTML = function($){
-    return $(`#fldStudent`).val()
+module.exports.getIdFromSignInInfo = function(signInInfo){
+    const matches = signInInfo.url.match(/(?<=studentid=)[^\s|&]*/)
+    if(matches.length>0)
+        return matches[0]
+    return signInInfo.$(`#fldStudent`).val()
 }
 
 //This is a helper function to get the list of assignments on a page
@@ -156,7 +159,7 @@ module.exports.openAndSignIntoGenesis = async function (emailURIencoded, passURI
     const resText = await response.text()
     const $ = cheerio.load(resText)
     const signedIn = checkSignIn(response.url, $ ,schoolDomain)
-    return ({$,signedIn,cookie:cookieJar})
+    return ({$,signedIn,cookie:cookieJar,url:response.url})
 }
 
 function checkSignIn (url, $ ,schoolDomain){
@@ -207,7 +210,7 @@ module.exports.getCurrentGrades = async function (email, pass, schoolDomain) {
         return { Status: "Invalid" };
     }
     //Navigate to the Course Summary
-    const courseSummaryTabURL = `${module.exports.getSchoolUrl(schoolDomain,"main")}?tab1=studentdata&tab2=gradebook&tab3=coursesummary&action=form&studentid=${module.exports.getIdFromHTML(signInInfo.$)}`;
+    const courseSummaryTabURL = `${module.exports.getSchoolUrl(schoolDomain,"main")}?tab1=studentdata&tab2=gradebook&tab3=coursesummary&action=form&studentid=${module.exports.getIdFromSignInInfo(signInInfo)}`;
     const courseSummaryLandingContent = await module.exports.openPage(cookieJar,courseSummaryTabURL)
     //Get an array of the classes the student has
     const classes = []
