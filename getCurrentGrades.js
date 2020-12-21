@@ -221,7 +221,7 @@ module.exports.getCurrentGrades = async function (email, pass, schoolDomain) {
         console.log(`No AUP??? - No Courses Found: : ${email} ||${pass}`)
         console.log(courseSummaryTabURL)
         console.log(`length: ${signInInfo.$.html().length}`)
-        console.log(`id: ${module.exports.getIdFromHTML(signInInfo.$)}`)
+        console.log(`id: ${module.exports.getIdFromSignInInfo(signInInfo)}`)
         //require('fs').writeFileSync('last.html', courseSummaryLandingContent);
         return { Status: "No Courses Found" };
     }
