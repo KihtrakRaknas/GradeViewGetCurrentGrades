@@ -1,6 +1,7 @@
 const pRetry = require('p-retry')
 const fetch = require("node-fetch")
 const cheerio = require('cheerio')
+const UserAgent = require('user-agents')
 
 module.exports.urlMaster={
     "sbstudents.org":{
@@ -144,14 +145,15 @@ module.exports.openAndSignIntoGenesis = async function (emailURIencoded, passURI
     const body = `j_username=${emailURIencoded}&j_password=${passURIencoded}`
     const loginURL = `${module.exports.getSchoolUrl(schoolDomain,"securityCheck")}?${body}`;
     const landingURL = module.exports.getSchoolUrl(schoolDomain,"loginPage")
+    const userAgent = (new UserAgent({ deviceCategory: 'desktop' })).toString()
     let cookieResponse
     let cookieJar
     let response
     try{
         await pRetry(async ()=>{
-            cookieResponse = await fetch(landingURL, {headers:{...module.exports.fetchHeaderDefaults}, method:"get"})
+            cookieResponse = await fetch(landingURL, {headers:{...module.exports.fetchHeaderDefaults, "User-Agent":userAgent}, method:"get"})
             cookieJar = cookieResponse.headers.raw()['set-cookie'].map(e=>e.split(";")[0]).join("; ")
-            response = await fetch(loginURL, {headers:{...module.exports.fetchHeaderDefaults, cookie:cookieJar},method:"post"})
+            response = await fetch(loginURL, {headers:{...module.exports.fetchHeaderDefaults, cookie:cookieJar, "User-Agent":userAgent},method:"post"})
         }, {retries: 5})
     }catch{
         return {signedIn:false}
@@ -159,7 +161,7 @@ module.exports.openAndSignIntoGenesis = async function (emailURIencoded, passURI
     const resText = await response.text()
     const $ = cheerio.load(resText)
     const signedIn = checkSignIn(response.url, $ ,schoolDomain)
-    return ({$,signedIn,cookie:cookieJar,url:response.url})
+    return ({$,signedIn,cookie:cookieJar,url:response.url, userAgent})
 }
 
 function checkSignIn (url, $ ,schoolDomain){
@@ -167,9 +169,12 @@ function checkSignIn (url, $ ,schoolDomain){
     return ($.html().length>1000 &&url != module.exports.getSchoolUrl(schoolDomain,"loginPage") && $('.sectionTitle').text().trim() != "Invalid user name or password.  Please try again.")
 }
 
-module.exports.openPage = async function (cookieJar, pageUrl){
+module.exports.openPage = async function (cookieJar, pageUrl, userAgent){
+    let headers ={ ...module.exports.fetchHeaderDefaults, cookie:cookieJar}
+    if(userAgent)
+       headers = {...headers, "User-Agent":userAgent}
     return await pRetry(async ()=> fetch(pageUrl, {
-        headers: { ...module.exports.fetchHeaderDefaults, cookie:cookieJar},
+        headers,
         method: 'get',
     }),{retries: 5}).then(response=>response.text())
 }
@@ -211,7 +216,7 @@ module.exports.getCurrentGrades = async function (email, pass, schoolDomain) {
     }
     //Navigate to the Course Summary
     const courseSummaryTabURL = `${module.exports.getSchoolUrl(schoolDomain,"main")}?tab1=studentdata&tab2=gradebook&tab3=coursesummary&action=form&studentid=${module.exports.getIdFromSignInInfo(signInInfo)}`;
-    const courseSummaryLandingContent = await module.exports.openPage(cookieJar,courseSummaryTabURL)
+    const courseSummaryLandingContent = await module.exports.openPage(cookieJar, courseSummaryTabURL, signInInfo.userAgent)
     //Get an array of the classes the student has
     const classes = []
     cheerio("#fldCourse>option",courseSummaryLandingContent).map(function(i) {
@@ -233,7 +238,7 @@ module.exports.getCurrentGrades = async function (email, pass, schoolDomain) {
             //Select the class
             const [courseCode, courseSection]=indivClass.split(":")
             const coursePageUrl = `${courseSummaryTabURL}&action=form&courseCode=${courseCode}&courseSection=${courseSection}`
-            const coursePageContent = await module.exports.openPage(cookieJar,coursePageUrl)
+            const coursePageContent = await module.exports.openPage(cookieJar,coursePageUrl, signInInfo.userAgent)
             const $ = cheerio.load(coursePageContent)
             //Get an array of Marking Periods that the class has grades for
             const markingPeriods = []
@@ -248,7 +253,7 @@ module.exports.getCurrentGrades = async function (email, pass, schoolDomain) {
             for (var indivMarkingPeriod of markingPeriods) {
                 if (indivMarkingPeriod) {
                     updateGradesPromises.push((async(indivMarkingPeriodParam)=>{
-                        const newCoursePageContent = await module.exports.openPage(cookieJar,`${coursePageUrl}&mp=${indivMarkingPeriodParam}`)
+                        const newCoursePageContent = await module.exports.openPage(cookieJar,`${coursePageUrl}&mp=${indivMarkingPeriodParam}`, signInInfo.userAgent)
                         await updateGradesWithMP(grades,className,indivMarkingPeriodParam,cheerio.load(newCoursePageContent))
                     })(indivMarkingPeriod))
                 }
