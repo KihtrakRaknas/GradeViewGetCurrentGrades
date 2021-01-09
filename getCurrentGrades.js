@@ -27,6 +27,7 @@ module.exports.getSchoolUrl = function(schoolDomain,pageType){
 }
 
 module.exports.postFixUsername = function(username,school){
+    username = trim(username)
     if(username.includes('@'))
         return username
     return username+"@noEmail@"+school
