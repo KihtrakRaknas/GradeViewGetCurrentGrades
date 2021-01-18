@@ -16,6 +16,12 @@ module.exports.urlMaster={
         securityCheck:"/sis/j_security_check",
         main:"/parents"
     },
+    "mtsdstudent.us":{
+        root:"https://parents.mtsd.k12.nj.us/genesis",
+        loginPage:"/sis/view?gohome=true",
+        securityCheck:"/sis/j_security_check",
+        main:"/parents"
+    },
 }
 
 module.exports.getSchoolUrl = function(schoolDomain,pageType){
