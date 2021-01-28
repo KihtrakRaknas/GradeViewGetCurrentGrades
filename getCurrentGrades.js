@@ -33,7 +33,7 @@ module.exports.getSchoolUrl = function(schoolDomain,pageType){
 }
 
 module.exports.postFixUsername = function(username,school){
-    username = username.trim()
+    username = username.trim().toLowerCase()
     if(username.includes('@'))
         return username
     return username+"@noEmail@"+school
