@@ -168,6 +168,8 @@ module.exports.openAndSignIntoGenesis = async function (emailURIencoded, passURI
     const resText = await response.text()
     const $ = cheerio.load(resText)
     const signedIn = checkSignIn(response.url, $ ,schoolDomain)
+    if(!signedIn)
+        console.log(`Sign in failed: ${userAgent}`)
     return ({$,signedIn,cookie:cookieJar,url:response.url, userAgent})
 }
 
