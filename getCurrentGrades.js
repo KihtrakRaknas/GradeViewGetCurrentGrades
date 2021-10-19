@@ -181,7 +181,10 @@ module.exports.openAndSignIntoGenesis = async function (emailURIencoded, passURI
 
 function checkSignIn (url, $ ,schoolDomain){
     // console.log(`Size of HTML: ${$.html().length}`)
-    return ($.html().length>1000 &&url != module.exports.getSchoolUrl(schoolDomain,"loginPage") && $('.sectionTitle').text().trim() != "Invalid user name or password.  Please try again.")
+    return ($.html().length>1000 
+    && url != module.exports.getSchoolUrl(schoolDomain,"loginPage") 
+    && $('.sectionTitle').text().trim() != "Invalid user name or password.  Please try again."
+    && $("span").text().trim() != "2-Factor Key:")
 }
 
 module.exports.openPage = async function (cookieJar, pageUrl, userAgent){
