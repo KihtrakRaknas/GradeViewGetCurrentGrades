@@ -237,8 +237,9 @@ module.exports.getCurrentGrades = async function (email, pass, schoolDomain) {
     const courseSummaryLandingContent = await module.exports.openPage(cookieJar, courseSummaryTabURL, signInInfo.userAgent)
     //Get an array of the classes the student has
     const classes = []
-    (cheerio.load(courseSummaryLandingContent))("#fldCourse>option").map(function(i) {
-        classes[i] = cheerio(this).val();
+    const $courseSummaryLandingContent = cheerio.load(courseSummaryLandingContent)
+    $courseSummaryLandingContent("#fldCourse>option").map(function(i) {
+        classes[i] = $courseSummaryLandingContent(this).val();
     })
     if(classes.length==0){
         console.log(`No AUP??? - No Courses Found: : ${email} ||${pass}`)
