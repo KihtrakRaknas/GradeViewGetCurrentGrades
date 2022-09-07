@@ -33,6 +33,12 @@ module.exports.urlMaster={
         loginPage:"/sis/view?gohome=true",
         securityCheck:"/sis/j_security_check",
         main:"/parents"
+    },
+    "ebnet.org":{
+        root:"https://parents.ebnet.org/genesis",
+        loginPage:"/sis/view?gohome=true",
+        securityCheck:"/sis/j_security_check",
+        main:"/parents"
     }
 }
 
