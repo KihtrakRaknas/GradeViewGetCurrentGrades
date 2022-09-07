@@ -27,6 +27,12 @@ module.exports.urlMaster={
         loginPage:"/sis/view?gohome=true",
         securityCheck:"/sis/j_security_check",
         main:"/parents"
+    },
+    "wwprsd.org":{
+        root:"https://parents.ww-p.org/genesis",
+        loginPage:"/sis/view?gohome=true",
+        securityCheck:"/sis/j_security_check",
+        main:"/parents"
     }
 }
 
