@@ -10,8 +10,15 @@ module.exports.urlMaster={
         securityCheck:"/sis/j_security_check",
         main:"/parents"
     },
+    // There domain name is now mcmsnj.net (keeping to not break old accounts)
     "mcvts.net":{
         root:"https://parents.genesisedu.com/mcvts",
+        loginPage:"/sis/view?gohome=true",
+        securityCheck:"/sis/j_security_check",
+        main:"/parents"
+    },
+    "mcmsnj.net":{
+        root:"https://parents.genesisedu.com/mcmsnj",
         loginPage:"/sis/view?gohome=true",
         securityCheck:"/sis/j_security_check",
         main:"/parents"
