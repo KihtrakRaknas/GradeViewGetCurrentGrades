@@ -18,7 +18,7 @@ module.exports.urlMaster={
         main:"/parents"
     },
     "mcmsnj.net":{
-        root:"https://parents.genesisedu.com/mcmsnj",
+        root:"https://parents.c2.genesisedu.net/mcmsnj",
         loginPage:"/sis/view?gohome=true",
         securityCheck:"/sis/j_security_check",
         main:"/parents"
