@@ -46,6 +46,12 @@ module.exports.urlMaster={
         loginPage:"/sis/view?gohome=true",
         securityCheck:"/sis/j_security_check",
         main:"/parents"
+    },
+    "bernardsboe.com":{
+        root: "https://parents.c2.genesisedu.net/bernardsboe",
+        loginPage: "/sis/view?gohome=true",
+        securityCheck:"/sis/j_security_check",
+        main:"/parents"
     }
 }
 
