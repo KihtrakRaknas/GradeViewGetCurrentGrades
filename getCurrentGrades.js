@@ -86,7 +86,7 @@ module.exports.getIdFromSignInInfo = function(signInInfo){
 //This is a helper function to get the list of assignments on a page
 async function scrapeAssignments($) {
     const list = []
-    $(`.listroweven,.listroweven`).each(function(i,el) {
+    $(`.listroweven,.listrowodd`).each(function(i,el) {
         let assignData = {};
         const tds = $($(el).html()) // err?
         if(tds.children().length>1){
@@ -101,11 +101,17 @@ async function scrapeAssignments($) {
             // TODO: Populate assignData["Subtitle"]
 
             const gradeColumn = tds.eq(5)
-            if (gradeColumn.contents().length <= 3) {
-                assignData["Grade"] = gradeColumn.contents().eq(0).text().replace(/\s/g, '')
-            } else {
-                assignData["Grade"] = gradeColumn.contents().eq(2).text().replace(/\s/g, '')
-                assignData["Weighting"] = gradeColumn.contents().eq(1).text().replace(/\s/g, '')
+            const textEls = gradeColumn.contents().filter(function() {
+                return this.nodeType === 3;
+            });
+            let grade = "";
+            textEls.each(function() {
+                grade += $(this).text()
+            });
+            assignData["Grade"] = grade.replace(/\s/g, '');
+            const weightDiv = gradeColumn.children('div:not([style*="font-weight"])').eq(0);
+            if(weightDiv){
+                assignData["Weighting"] = weightDiv.text().replace(/\s/g, '')
             }
             const commentFncCall = gradeColumn.children("img").eq(0).attr('onclick')
             if (commentFncCall){
