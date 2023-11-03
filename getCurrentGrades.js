@@ -109,9 +109,12 @@ async function scrapeAssignments($) {
             }
             const commentFncCall = gradeColumn.children("img").eq(0).attr('onclick')
             if (commentFncCall){
-                const commentText = commentFncCall.match(/displayComments\('(.*)'\);/)[1];
-                if(commentText != "")
-                    assignData["Comment"] = commentText
+                const commentMatches = commentFncCall.match(/displayComments\('(.*)'\);/)
+                if(commentMatches.length >= 1){
+                    const commentText = commentMatches[1];
+                    if(commentText != "")
+                        assignData["Comment"] = commentText
+                }
             }
             list[i]=assignData;
         }
@@ -227,6 +230,8 @@ async function updateGradesWithMP(grades, className, indivMarkingPeriod, $){
         }
     }catch(e){
         console.log(`Caught Error: ${e}`)
+        console.log('\tname: ' + e.name + ' message: ' + e.message + ' at: ' + e.at + ' text: ' + e.text);
+        console.log(e.stack);
         console.log(`Class: ${className} MP: ${indivMarkingPeriod} -- MP was unscrapable`)
     }
 }
