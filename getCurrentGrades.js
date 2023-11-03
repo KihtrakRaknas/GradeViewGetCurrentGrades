@@ -93,7 +93,7 @@ async function scrapeAssignments($) {
             const dateColumn = tds.eq(1)
             const day = dateColumn.children("div").eq(0).text().replace(/ /g, '')
             const numDate = dateColumn.children("div").eq(1).text().replace(/ /g, '')
-            assignData["Date"] = `${day} ${numDate}`
+            assignData["Date"] = `${day}\n${numDate}`
 
             const titleColumn = tds.eq(3);
             assignData["Category"] = titleColumn.children("div").filter(":not(.boxShadow)").eq(0).text().trim()
