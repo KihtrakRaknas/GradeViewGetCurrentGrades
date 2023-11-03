@@ -46,6 +46,12 @@ module.exports.urlMaster={
         loginPage:"/sis/view?gohome=true",
         securityCheck:"/sis/j_security_check",
         main:"/parents"
+    },
+    "bernardsboe.com":{
+        root: "https://parents.c2.genesisedu.net/bernardsboe",
+        loginPage: "/sis/view?gohome=true",
+        securityCheck:"/sis/j_security_check",
+        main:"/parents"
     }
 }
 
@@ -80,44 +86,35 @@ module.exports.getIdFromSignInInfo = function(signInInfo){
 //This is a helper function to get the list of assignments on a page
 async function scrapeAssignments($) {
     const list = []
-    $(`.notecard>tbody>tr>td>div>table.list>tbody>tr:not(.listheading)[class]`).each(function(i,el) {
-        var assignData = {};
-        const tds = $("td.cellLeft",$(el).html()) // err?
+    $(`.listroweven,.listroweven`).each(function(i,el) {
+        let assignData = {};
+        const tds = $($(el).html()) // err?
         if(tds.children().length>1){
-            assignData["Date"] = $(tds.get(1)).text().trim().replace(/ /g, '')
-            //assignData["Date"] = node.childNodes[3].innerText;
-            assignData["Category"] = $(tds.get(3)).contents().last().text().trim()
-            //assignData["Category"] = node.childNodes[7].innerText.
-            const titleColumn = $(tds.get(4));
-            let titleStr = ""
-            titleColumn.contents().filter(":not(.boxShadow)").each(function(i,el){
-                titleStr += $(el).text()+"\n"
-            })
-            titleStr=titleStr.trim()    
-            var titleArr = (""+titleStr).split("\n")
-            //var titleArr = (""+node.childNodes[9].innerText).split("\n")
-            assignData["Name"] = (""+titleArr[0]).replace(/\s+/g, ' ');
-            if(titleArr.length>1){
-                titleArr.shift()
-                assignData["Subtitle"] = titleArr.join("\n");
-            }
-            //if (node.childNodes[11].childNodes.length <= 3) {
-            const gradeColumn = $(tds.get(5))
+            const dateColumn = tds.eq(1)
+            const day = dateColumn.children("div").eq(0).text().replace(/ /g, '')
+            const numDate = dateColumn.children("div").eq(1).text().replace(/ /g, '')
+            assignData["Date"] = `${day}\n${numDate}`
+
+            const titleColumn = tds.eq(3);
+            assignData["Category"] = titleColumn.children("div").filter(":not(.boxShadow)").eq(0).text().trim()
+            assignData["Name"] = titleColumn.children("b").eq(0).text().trim()
+            // TODO: Populate assignData["Subtitle"]
+
+            const gradeColumn = tds.eq(5)
             if (gradeColumn.contents().length <= 3) {
-                assignData["Grade"] = $(gradeColumn.contents().get(0)).text().replace(/\s/g, '')
-                //assignData["Grade"] = node.childNodes[11].childNodes[0].textContent.replace(/\s/g, '')
+                assignData["Grade"] = gradeColumn.contents().eq(0).text().replace(/\s/g, '')
             } else {
-                assignData["Grade"] = $(gradeColumn.contents().get(2)).text().replace(/\s/g, '')
-                assignData["Weighting"] = $(gradeColumn.contents().get(1)).text().replace(/\s/g, '')
-                //assignData["Grade"] = node.childNodes[11].childNodes[2].textContent.replace(/\s/g, '')
-                //assignData["Weighting"] = node.childNodes[11].childNodes[1].textContent.replace(/\s/g, '')
+                assignData["Grade"] = gradeColumn.contents().eq(2).text().replace(/\s/g, '')
+                assignData["Weighting"] = gradeColumn.contents().eq(1).text().replace(/\s/g, '')
             }
-            var commentText = $(titleColumn.last()).text()
-            //var commentText = node.childNodes[9].childNodes[node.childNodes[9].childNodes.length-2].innerText
-            commentText = commentText.substring(commentText.indexOf("Close") + 5).trim()
-            if (commentText != "")
-                assignData["Comment"] = commentText;
-            list[i]=assignData;
+            const commentFncCall = gradeColumn.children("img").eq(0).attr('onclick')
+            if (commentFncCall){
+                const commentMatches = commentFncCall.match(/displayComments\('(.*)'\);/)
+                if(commentMatches && commentMatches[1] != ""){
+                    assignData["Comment"] = commentMatches[1]
+                }
+            }
+            list.push(assignData);
         }
     });
     return list
@@ -219,12 +216,9 @@ module.exports.openPage = async function (cookieJar, pageUrl, userAgent){
 async function updateGradesWithMP(grades, className, indivMarkingPeriod, $){
     if (!grades[className])
         grades[className] = {}
-    if (!grades[className]["teacher"]) {
-        grades[className]["teacher"] = $(`.list:first-child>tbody>tr.listheading+tr>td:nth-child(3)`).text()
-    }
     //Check if the marking period has started yet
     try{
-        const timeStr = $(`.list:first-child>tbody>tr>td>div>span`).first().text().match(new RegExp('[0-1]?[0-9]/[0-3]?[0-9]/[0-9][0-9]'))[0]
+        const timeStr = $(`.list:first-child>tbody>tr>td>div>span`).first().html().match(new RegExp('[0-1]?[0-9]/[0-3]?[0-9]/[0-9][0-9]'))[0]
         if (timeStr ? new Date().getTime() - new Date(timeStr).getTime() > 0 : false ) {
             if (!grades[className][indivMarkingPeriod])
                 grades[className][indivMarkingPeriod] = {}
@@ -234,6 +228,8 @@ async function updateGradesWithMP(grades, className, indivMarkingPeriod, $){
         }
     }catch(e){
         console.log(`Caught Error: ${e}`)
+        console.log('\tname: ' + e.name + ' message: ' + e.message + ' at: ' + e.at + ' text: ' + e.text);
+        console.log(e.stack);
         console.log(`Class: ${className} MP: ${indivMarkingPeriod} -- MP was unscrapable`)
     }
 }
@@ -300,6 +296,18 @@ module.exports.getCurrentGrades = async function (email, pass, schoolDomain) {
         })())
     }
     await Promise.all(classPromises)
+
+    const weeklySummaryTabURL = `${module.exports.getSchoolUrl(schoolDomain,"main")}?tab1=studentdata&tab2=gradebook&tab3=weeklysummary&action=form&studentid=${module.exports.getIdFromSignInInfo(signInInfo)}`;
+    const weeklySummaryLandingContent = await module.exports.openPage(cookieJar, weeklySummaryTabURL, signInInfo.userAgent);
+    const $weeklySummaryLandingContent = cheerio.load(weeklySummaryLandingContent);
+    $weeklySummaryLandingContent(".twoColGridItem.flexLarge").each((i,el) => {
+        const className = $weeklySummaryLandingContent(el).children("div").eq(0).text().trim()
+        if(grades[className]){
+            const teach = $weeklySummaryLandingContent(el).children("div").eq(1).text().trim()
+            grades[className]["teacher"] = teach
+        }
+    });
+
     grades["Status"] = "Completed";
     return grades;
 }
