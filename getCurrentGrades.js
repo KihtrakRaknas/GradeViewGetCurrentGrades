@@ -87,7 +87,7 @@ module.exports.getIdFromSignInInfo = function(signInInfo){
 async function scrapeAssignments($) {
     const list = []
     $(`.listroweven,.listroweven`).each(function(i,el) {
-        var assignData = {};
+        let assignData = {};
         const tds = $($(el).html()) // err?
         if(tds.children().length>1){
             const dateColumn = tds.eq(1)
@@ -110,13 +110,11 @@ async function scrapeAssignments($) {
             const commentFncCall = gradeColumn.children("img").eq(0).attr('onclick')
             if (commentFncCall){
                 const commentMatches = commentFncCall.match(/displayComments\('(.*)'\);/)
-                if(commentMatches.length >= 1){
-                    const commentText = commentMatches[1];
-                    if(commentText != "")
-                        assignData["Comment"] = commentText
+                if(commentMatches && commentMatches[1] != ""){
+                    assignData["Comment"] = commentMatches[1]
                 }
             }
-            list[i]=assignData;
+            list.push(assignData);
         }
     });
     return list
