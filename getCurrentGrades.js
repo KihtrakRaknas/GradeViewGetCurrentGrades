@@ -224,7 +224,7 @@ async function updateGradesWithMP(grades, className, indivMarkingPeriod, $){
         grades[className] = {}
     //Check if the marking period has started yet
     try{
-        const timeStr = $(`.list:first-child>tbody>tr>td>div>span`).first().html().match(new RegExp('[0-1]?[0-9]/[0-3]?[0-9]/[0-9][0-9]'))[0]
+        const timeStr = $(`.list>tbody>tr>td>div>span`).first().html().match(new RegExp('[0-1]?[0-9]/[0-3]?[0-9]/[0-9][0-9]'))[0]
         if (timeStr ? new Date().getTime() - new Date(timeStr).getTime() > 0 : false ) {
             if (!grades[className][indivMarkingPeriod])
                 grades[className][indivMarkingPeriod] = {}
