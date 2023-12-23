@@ -180,25 +180,34 @@ module.exports.fetchHeaderDefaults = {
     "User-Agent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3738.0 Safari/537.36"
 }
 
+const validateRes = async (txt) => {
+    if (txt.trim() == "Maximum number of open connections reached.")
+        throw new Error(txt);
+    return txt
+}
+
 module.exports.openAndSignIntoGenesis = async function (emailURIencoded, passURIencoded, schoolDomain){
     const body = `j_username=${emailURIencoded}&j_password=${passURIencoded}`
     const loginURL = `${module.exports.getSchoolUrl(schoolDomain,"securityCheck")}?${body}`;
     const landingURL = module.exports.getSchoolUrl(schoolDomain,"loginPage")
     const userAgent = (new UserAgent({ deviceCategory: 'desktop' })).toString()
-    let cookieResponse
     let cookieJar
     let response
+    let resText
     try{
         await pRetry(async ()=>{
-            cookieResponse = await fetch(landingURL, {headers:{...module.exports.fetchHeaderDefaults, "User-Agent":userAgent}, method:"get", agent: proxyAgent})
+            let cookieResponse = await fetch(landingURL, {headers:{...module.exports.fetchHeaderDefaults, "User-Agent":userAgent}, method:"get", agent: proxyAgent})
+            await cookieResponse.text().then(validateRes)
             cookieJar = cookieResponse.headers.raw()['set-cookie'].map(e=>e.split(";")[0]).join("; ")
             response = await fetch(loginURL, {headers:{...module.exports.fetchHeaderDefaults, cookie:cookieJar, "User-Agent":userAgent},method:"post", agent: proxyAgent})
-        }, {retries: 5})
+            resText = await response.text().then(validateRes)
+        }, {
+            // retries: 5,	
+        })
     }catch (error){
         console.log(error)
         return {signedIn:false, error: error.message}
     }
-    const resText = await response.text()
     const $ = cheerio.load(resText)
     const signedIn = checkSignIn(response.url, $ ,schoolDomain)
     if(!signedIn)
@@ -218,11 +227,13 @@ module.exports.openPage = async function (cookieJar, pageUrl, userAgent){
     let headers ={ ...module.exports.fetchHeaderDefaults, cookie:cookieJar}
     if(userAgent)
        headers = {...headers, "User-Agent":userAgent}
-    return await pRetry(async ()=> fetch(pageUrl, {
-        headers,
-        method: 'get',
-        agent: proxyAgent
-    }),{retries: 5}).then(response=>response.text())
+    return await pRetry(async () => await fetch(pageUrl, {
+            headers,
+            method: 'get',
+            agent: proxyAgent
+        })
+        .then(response => response.text())
+        .then(validateRes))
 }
 
 async function updateGradesWithMP(grades, className, indivMarkingPeriod, $){
@@ -243,6 +254,7 @@ async function updateGradesWithMP(grades, className, indivMarkingPeriod, $){
         console.log('\tname: ' + e.name + ' message: ' + e.message + ' at: ' + e.at + ' text: ' + e.text);
         console.log(e.stack);
         console.log(`Class: ${className} MP: ${indivMarkingPeriod} -- MP was unscrapable`)
+        console.log($.html())
     }
 }
 
