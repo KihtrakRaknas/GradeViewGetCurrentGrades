@@ -1,7 +1,9 @@
+require('dotenv').config();
 const pRetry = require('p-retry')
 const fetch = require("node-fetch")
 const cheerio = require('cheerio')
 const UserAgent = require('user-agents')
+const HttpsProxyAgent = require('https-proxy-agent');
 
 module.exports.urlMaster={
     "sbstudents.org":{
@@ -82,6 +84,8 @@ module.exports.getIdFromSignInInfo = function(signInInfo){
         return matches[0]
     return signInInfo.$(`#fldStudent`).val()
 }
+
+const proxyAgent = process.env.DOKKU_TOR_PORT_8118_TCP_ADDR ? new HttpsProxyAgent(`http://${process.env.DOKKU_TOR_PORT_8118_TCP_ADDR}:${process.env.DOKKU_TOR_PORT_8118_TCP_PORT}`) : null;
 
 //This is a helper function to get the list of assignments on a page
 async function scrapeAssignments($) {
@@ -186,12 +190,13 @@ module.exports.openAndSignIntoGenesis = async function (emailURIencoded, passURI
     let response
     try{
         await pRetry(async ()=>{
-            cookieResponse = await fetch(landingURL, {headers:{...module.exports.fetchHeaderDefaults, "User-Agent":userAgent}, method:"get"})
+            cookieResponse = await fetch(landingURL, {headers:{...module.exports.fetchHeaderDefaults, "User-Agent":userAgent}, method:"get", agent: proxyAgent})
             cookieJar = cookieResponse.headers.raw()['set-cookie'].map(e=>e.split(";")[0]).join("; ")
-            response = await fetch(loginURL, {headers:{...module.exports.fetchHeaderDefaults, cookie:cookieJar, "User-Agent":userAgent},method:"post"})
+            response = await fetch(loginURL, {headers:{...module.exports.fetchHeaderDefaults, cookie:cookieJar, "User-Agent":userAgent},method:"post", agent: proxyAgent})
         }, {retries: 5})
-    }catch{
-        return {signedIn:false}
+    }catch (error){
+        console.log(error)
+        return {signedIn:false, error: error.message}
     }
     const resText = await response.text()
     const $ = cheerio.load(resText)
@@ -216,6 +221,7 @@ module.exports.openPage = async function (cookieJar, pageUrl, userAgent){
     return await pRetry(async ()=> fetch(pageUrl, {
         headers,
         method: 'get',
+        agent: proxyAgent
     }),{retries: 5}).then(response=>response.text())
 }
 
