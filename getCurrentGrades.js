@@ -198,7 +198,10 @@ module.exports.openAndSignIntoGenesis = async function (emailURIencoded, passURI
         await pRetry(async ()=>{
             let cookieResponse = await fetch(landingURL, {headers:{...module.exports.fetchHeaderDefaults, "User-Agent":userAgent}, method:"get", agent: proxyAgent})
             await cookieResponse.text().then(validateRes)
-            cookieJar = cookieResponse.headers.raw()['set-cookie'].map(e=>e.split(";")[0]).join("; ")
+            const cookieFromHeader = cookieResponse.headers.raw()['set-cookie']
+            if(!cookieFromHeader)
+                throw new Error("No cookies in header")
+            cookieJar = cookieFromHeader.map(e=>e.split(";")[0]).join("; ")
             response = await fetch(loginURL, {headers:{...module.exports.fetchHeaderDefaults, cookie:cookieJar, "User-Agent":userAgent},method:"post", agent: proxyAgent})
             resText = await response.text().then(validateRes)
         }, {
