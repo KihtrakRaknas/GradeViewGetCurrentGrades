@@ -180,10 +180,10 @@ module.exports.fetchHeaderDefaults = {
     "User-Agent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3738.0 Safari/537.36"
 }
 
-const validateRes = async (txt) => {
-    if (txt.trim() == "Maximum number of open connections reached.")
-        throw new Error(txt);
-    return txt
+const validateRes = async (res) => {
+	if (!res.ok)
+		throw new Error(res.statusText);
+    return res
 }
 
 module.exports.openAndSignIntoGenesis = async function (emailURIencoded, passURIencoded, schoolDomain){
@@ -196,14 +196,14 @@ module.exports.openAndSignIntoGenesis = async function (emailURIencoded, passURI
     let resText
     try{
         await pRetry(async ()=>{
-            let cookieResponse = await fetch(landingURL, {headers:{...module.exports.fetchHeaderDefaults, "User-Agent":userAgent}, method:"get", agent: proxyAgent})
-            await cookieResponse.text().then(validateRes)
+            let cookieResponse = await fetch(landingURL, {headers:{...module.exports.fetchHeaderDefaults, "User-Agent":userAgent}, method:"get", agent: proxyAgent}).then(validateRes)
+            await cookieResponse.text()
             const cookieFromHeader = cookieResponse.headers.raw()['set-cookie']
             if(!cookieFromHeader)
                 throw new Error("No cookies in header")
             cookieJar = cookieFromHeader.map(e=>e.split(";")[0]).join("; ")
-            response = await fetch(loginURL, {headers:{...module.exports.fetchHeaderDefaults, cookie:cookieJar, "User-Agent":userAgent},method:"post", agent: proxyAgent})
-            resText = await response.text().then(validateRes)
+            response = await fetch(loginURL, {headers:{...module.exports.fetchHeaderDefaults, cookie:cookieJar, "User-Agent":userAgent},method:"post", agent: proxyAgent}).then(validateRes)
+            resText = await response.text()
         }, {
             // retries: 5,	
         })
@@ -235,8 +235,8 @@ module.exports.openPage = async function (cookieJar, pageUrl, userAgent){
             method: 'get',
             agent: proxyAgent
         })
-        .then(response => response.text())
-        .then(validateRes))
+        .then(validateRes)
+        .then(response => response.text()))
 }
 
 async function updateGradesWithMP(grades, className, indivMarkingPeriod, $){
