@@ -180,10 +180,16 @@ module.exports.fetchHeaderDefaults = {
     "User-Agent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3738.0 Safari/537.36"
 }
 
-const validateRes = async (res) => {
+const validateRes = (res) => {
 	if (!res.ok)
 		throw new Error(res.statusText);
     return res
+}
+
+const validateHTML = (text) => {
+    if (!text)
+        throw new Error("No HTML");
+    return text
 }
 
 module.exports.openAndSignIntoGenesis = async function (emailURIencoded, passURIencoded, schoolDomain){
@@ -203,7 +209,7 @@ module.exports.openAndSignIntoGenesis = async function (emailURIencoded, passURI
                 throw new Error("No cookies in header")
             cookieJar = cookieFromHeader.map(e=>e.split(";")[0]).join("; ")
             response = await fetch(loginURL, {headers:{...module.exports.fetchHeaderDefaults, cookie:cookieJar, "User-Agent":userAgent},method:"post", agent: proxyAgent}).then(validateRes)
-            resText = await response.text()
+            resText = await response.text().then(validateHTML)
         }, {
             // retries: 5,	
         })
@@ -244,7 +250,8 @@ module.exports.openPage = async function (cookieJar, pageUrl, userAgent){
             agent: proxyAgent
         })
         .then(validateRes)
-        .then(response => response.text()))
+        .then(response => response.text())
+        .then(validateHTML))
 }
 
 async function updateGradesWithMP(grades, className, indivMarkingPeriod, $){
