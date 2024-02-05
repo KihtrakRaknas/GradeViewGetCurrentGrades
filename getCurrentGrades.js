@@ -211,6 +211,10 @@ module.exports.openAndSignIntoGenesis = async function (emailURIencoded, passURI
             response = await fetch(loginURL, {headers:{...module.exports.fetchHeaderDefaults, cookie:cookieJar, "User-Agent":userAgent},method:"post", agent: proxyAgent}).then(validateRes)
             resText = await response.text().then(validateHTML)
         }, {
+            onFailedAttempt: error => {
+                console.log(`Attempt ${error.attemptNumber} failed.`);
+                console.error(error)
+            }
             // retries: 5,	
         })
     }catch (error){
@@ -248,6 +252,11 @@ module.exports.openPage = async function (cookieJar, pageUrl, userAgent){
             headers,
             method: 'get',
             agent: proxyAgent
+        }, {
+            onFailedAttempt: error => {
+                console.log(`Attempt ${error.attemptNumber} failed.`);
+                console.error(error)
+            }
         })
         .then(validateRes)
         .then(response => response.text())
