@@ -214,7 +214,7 @@ module.exports.openAndSignIntoGenesis = async function (emailURIencoded, passURI
             onFailedAttempt: error => {
                 console.log(`Attempt ${error.attemptNumber} failed.`);
                 console.error(error)
-                fetch('https://api.ipify.org?format=json').then(res=>res.json()).then(console.log)
+                fetch('https://api.ipify.org?format=json', {agent: proxyAgent}).then(res=>res.json()).then(console.log)
             }
             // retries: 5,	
         })
