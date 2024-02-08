@@ -196,6 +196,7 @@ module.exports.openAndSignIntoGenesis = async function (emailURIencoded, passURI
     const body = `j_username=${emailURIencoded}&j_password=${passURIencoded}`
     const loginURL = `${module.exports.getSchoolUrl(schoolDomain,"securityCheck")}?${body}`;
     const landingURL = module.exports.getSchoolUrl(schoolDomain,"loginPage")
+    const mainURL = module.exports.getSchoolUrl(schoolDomain,"main")
     const userAgent = (new UserAgent({ deviceCategory: 'desktop' })).toString()
     let cookieJar
     let response
@@ -208,8 +209,9 @@ module.exports.openAndSignIntoGenesis = async function (emailURIencoded, passURI
             if(!cookieFromHeader)
                 throw new Error("No cookies in header")
             cookieJar = cookieFromHeader.map(e=>e.split(";")[0]).join("; ")
-            response = await fetch(loginURL, {headers:{...module.exports.fetchHeaderDefaults, cookie:cookieJar, "User-Agent":userAgent},method:"post", agent: proxyAgent}).then(validateRes)
-            resText = await module.exports.openPage(cookieJar, module.exports.getSchoolUrl(schoolDomain,"main"), userAgent)
+            await fetch(loginURL, {headers:{...module.exports.fetchHeaderDefaults, cookie:cookieJar, "User-Agent":userAgent},method:"post", agent: proxyAgent}).then(validateRes)
+            response = await fetch(mainURL, {headers:{...module.exports.fetchHeaderDefaults, cookie:cookieJar, "User-Agent":userAgent},method:"get", agent: proxyAgent}).then(validateRes)
+            resText = await response.text().then(validateHTML)
         }, {
             onFailedAttempt: error => {
                 console.log(`Attempt ${error.attemptNumber} failed.`);
@@ -234,6 +236,7 @@ function checkSignIn (url, $ ,schoolDomain){
     // console.log(`Size of HTML: ${$.html().length}`)
     const res = ($.html().length>1000 
     && url != module.exports.getSchoolUrl(schoolDomain,"loginPage") 
+    && url != module.exports.getSchoolUrl(schoolDomain,"main") 
     && $('.sectionTitle').text().trim() != "Invalid user name or password.  Please try again."
     && $("span").text().trim() != "2-Factor Key:")
     if(!res){
@@ -241,7 +244,7 @@ function checkSignIn (url, $ ,schoolDomain){
         console.log(`Size of HTML: ${$.html().length}`)
         console.log(`Section Title: ${$('.sectionTitle').text().trim()}`)
         console.log(`2-Factor Key Text: ${$("span").text().trim()}`)
-        console.log(`HTML: ${$.html()}`)
+        // console.log(`HTML: ${$.html()}`)
     }
     return res
 }
