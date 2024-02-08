@@ -128,8 +128,16 @@ const updateProxies = () => {
             checkNewProxyAgent()
     })
 }
-updateProxies()
-setInterval(updateProxies, 1000 * 60 * 60)
+
+let newProxyOnFailFlag = false
+module.exports.initProxies = function (options){
+    updateProxies()
+    setInterval(updateProxies, 1000 * 60 * 60)
+    newProxyOnFailFlag = Object.hasOwn(options, 'newProxyOnFail') ? options.newProxyOnFail : true
+    const checkProxyRegularly = Object.hasOwn(options, 'checkProxyRegularly') ? options.checkProxyRegularly : true
+    if(checkProxyRegularly)
+        setInterval(checkNewProxyAgent, 1000 * 10)
+}
 
 let proxyLock = false
 const getProxyAgent = async () => {
@@ -172,8 +180,6 @@ async function checkNewProxyAgent () {
         // console.log("Proxy still working")
     }
 }
-
-setInterval(checkNewProxyAgent, 1000 * 10)
 
 //This is a helper function to get the list of assignments on a page
 async function scrapeAssignments($) {
@@ -270,7 +276,8 @@ module.exports.fetchHeaderDefaults = {
 
 const validateRes = (res) => {
 	if (!res.ok){
-        newProxyAgent()
+        if(newProxyOnFailFlag)
+            newProxyAgent()
 		throw new Error(res.statusText);
     }
     return res
@@ -278,7 +285,8 @@ const validateRes = (res) => {
 
 const validateHTML = (text) => {
     if (!text){
-        newProxyAgent()
+        if(newProxyOnFailFlag)
+            newProxyAgent()
         throw new Error("No HTML");
     }
     return text
@@ -286,7 +294,8 @@ const validateHTML = (text) => {
 
 const handleFetchError = (error) => {
     if(error.name == "AbortError" || error.name == "FetchError"){
-        newProxyAgent()
+        if(newProxyOnFailFlag)
+            newProxyAgent()
     }
     throw error
 }
