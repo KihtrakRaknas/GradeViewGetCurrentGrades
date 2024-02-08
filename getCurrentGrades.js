@@ -130,13 +130,15 @@ const updateProxies = () => {
 }
 
 let newProxyOnFailFlag = false
+let requestTimeout = -1
 module.exports.initProxies = function (options){
     updateProxies()
     setInterval(updateProxies, 1000 * 60 * 60)
     newProxyOnFailFlag = Object.hasOwn(options, 'newProxyOnFail') ? options.newProxyOnFail : true
-    const checkProxyRegularly = Object.hasOwn(options, 'checkProxyRegularly') ? options.checkProxyRegularly : true
-    if(checkProxyRegularly)
-        setInterval(checkNewProxyAgent, 1000 * 10)
+    const checkProxyInterval = Object.hasOwn(options, 'checkProxyInterval') ? options.checkProxyInterval : 10
+    if(checkProxyInterval != 0 && checkProxyRegularly != -1)
+        setInterval(checkNewProxyAgent, 1000 * checkProxyInterval)
+    requestTimeout = Object.hasOwn(options, 'requestTimeout') ? options.requestTimeout : 15
 }
 
 let proxyLock = false
@@ -300,6 +302,12 @@ const handleFetchError = (error) => {
     throw error
 }
 
+const createAbortSignal = () => {
+    if(requestTimeout == 0 || requestTimeout == -1)
+        return null
+    return AbortSignal.timeout(requestTimeout * 1000)
+}
+
 module.exports.openAndSignIntoGenesis = async function (emailURIencoded, passURIencoded, schoolDomain){
     const body = `j_username=${emailURIencoded}&j_password=${passURIencoded}`
     const loginURL = `${module.exports.getSchoolUrl(schoolDomain,"securityCheck")}?${body}`;
@@ -311,13 +319,13 @@ module.exports.openAndSignIntoGenesis = async function (emailURIencoded, passURI
     let resText
     try{
         await pRetry(async ()=>{
-            let cookieResponse = await fetch(landingURL, {headers:{...module.exports.fetchHeaderDefaults, "User-Agent":userAgent}, method:"get", agent: proxyAgent.value, signal: AbortSignal.timeout(15000)}).then(validateRes).catch(handleFetchError)
+            let cookieResponse = await fetch(landingURL, {headers:{...module.exports.fetchHeaderDefaults, "User-Agent":userAgent}, method:"get", agent: proxyAgent.value, signal: createAbortSignal()}).then(validateRes).catch(handleFetchError)
             await cookieResponse.text()
             const cookieFromHeader = cookieResponse.headers.raw()['set-cookie']
             if(!cookieFromHeader)
                 throw new Error("No cookies in header")
             cookieJar = cookieFromHeader.map(e=>e.split(";")[0]).join("; ")
-            response = await fetch(loginURL, {headers:{...module.exports.fetchHeaderDefaults, cookie:cookieJar, "User-Agent":userAgent},method:"post", agent: proxyAgent.value, signal: AbortSignal.timeout(15000)}).then(validateRes).catch(handleFetchError)
+            response = await fetch(loginURL, {headers:{...module.exports.fetchHeaderDefaults, cookie:cookieJar, "User-Agent":userAgent},method:"post", agent: proxyAgent.value, signal: createAbortSignal()}).then(validateRes).catch(handleFetchError)
             // await fetch(mainURL, {headers:{...module.exports.fetchHeaderDefaults, cookie:cookieJar, "User-Agent":userAgent},method:"get", agent: proxyAgent.value, signal: AbortSignal.timeout(15000)}).then(validateRes)
             resText = await response.text().then(validateHTML).catch(handleFetchError)
         }, {
@@ -364,7 +372,7 @@ module.exports.openPage = async function (cookieJar, pageUrl, userAgent){
             headers,
             method: 'get',
             agent: proxyAgent.value,
-            signal: AbortSignal.timeout(15000)
+            signal: createAbortSignal()
         }, {
             onFailedAttempt: error => {
                 console.log(`Attempt ${error.attemptNumber} failed.`);
