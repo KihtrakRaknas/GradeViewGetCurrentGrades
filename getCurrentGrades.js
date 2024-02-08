@@ -4,6 +4,7 @@ const fetch = require("node-fetch")
 const cheerio = require('cheerio')
 const UserAgent = require('user-agents')
 const HttpsProxyAgent = require('https-proxy-agent');
+const ProxyLists = require('proxy-lists');
 
 module.exports.urlMaster={
     "sbstudents.org":{
@@ -85,7 +86,93 @@ module.exports.getIdFromSignInInfo = function(signInInfo){
     return signInInfo.$(`#fldStudent`).val()
 }
 
-const proxyAgent = process.env.DOKKU_TOR_PORT_8118_TCP_ADDR ? new HttpsProxyAgent(`http://${process.env.DOKKU_TOR_PORT_8118_TCP_ADDR}:${process.env.DOKKU_TOR_PORT_8118_TCP_PORT}`) : null;
+async function testProxy(proxy) {
+    try {
+        const agent = proxy instanceof HttpsProxyAgent? proxy : new HttpsProxyAgent(`${proxy.protocols[0]}://${proxy.ipAddress}:${proxy.port}`)
+        const controller = new AbortController()
+        setTimeout(() => controller.abort(), 5000)
+        const response = await fetch('https://api64.ipify.org/?format=json', {
+            agent,
+            signal: controller.signal
+        });
+        const ipAddress = await response.json();
+        // if(!(proxy instanceof HttpsProxyAgent)){
+        //     // console.log(proxy)
+        //     console.log(`Proxy ${proxy.protocols[0]}://${proxy.ipAddress}:${proxy.port} works! Your IP: ${ipAddress.ip}`);
+        // }
+        return [true, agent];
+    } catch (error) {
+        // console.log(`Proxy ${proxy instanceof HttpsProxyAgent?"":`${proxy.protocols[0]}://${proxy.ipAddress}:${proxy.port}`} failed.`);
+        return [false];
+    }
+}
+
+// const proxyAgent = process.env.DOKKU_TOR_PORT_8118_TCP_ADDR ? new HttpsProxyAgent(`http://${process.env.DOKKU_TOR_PORT_8118_TCP_ADDR}:${process.env.DOKKU_TOR_PORT_8118_TCP_PORT}`) : null;
+
+let proxyAgent = {value: null};
+let allProxies = []
+const updateProxies = () => {
+    allProxies = []
+    const proxyList = ProxyLists.getProxies({
+        countries: ['us', 'ca'],
+        filterMode: 'strict',
+        protocols: ['https','http'],
+        sourcesWhiteList: ['proxyscrape-com']
+    })
+    proxyList.on('data', async function(proxies) {
+        const first = allProxies.length == 0
+        for (const proxy of proxies) {
+            allProxies.push(proxy);
+        }
+        if(allProxies.length != 0)
+            checkNewProxyAgent()
+    })
+}
+updateProxies()
+setInterval(updateProxies, 1000 * 60 * 60)
+
+let proxyLock = false
+const getProxyAgent = async () => {
+    if(proxyLock)
+        throw new Error("Already getting proxy")
+    proxyLock = true
+    console.log(`Searching for a working proxy... \List Size:${allProxies.length}`);
+    let tests = Array(100).fill(null).map((el,i)=>Promise.resolve({index:i, result:[false]}));
+    for (let i = 0; i < allProxies.length * 2; i++) {
+        const {result, index} = await Promise.race(tests)
+        const proxy = allProxies[Math.floor(Math.random() * allProxies.length)];
+        tests[index] = testProxy(proxy).then(res=>res[0]?testProxy(proxy):res).then(result=>({result, index}))
+        if (result[0]) {
+            proxyLock = false
+            return result[1]
+        }
+    }
+    proxyLock = false
+    updateProxies()
+    throw new Error("No working proxies found")
+}
+
+async function newProxyAgent () {
+    console.log("Getting new proxy...")
+    try{
+        proxyAgent.value = await getProxyAgent()
+        console.log(`Proxy set! ${proxyAgent.value.proxy.href}`);
+    }catch(e){
+    }
+}
+
+async function checkNewProxyAgent () {
+    if(proxyLock)
+        return
+    console.log("Verifying Proxy...")
+    if(!proxyAgent.value || !(await testProxy(proxyAgent.value))[0]){
+        console.log("Proxy not working")
+        newProxyAgent()
+    }else
+        console.log("Proxy still working")
+}
+
+// setInterval(checkNewProxyAgent, 1000 * 10)
 
 //This is a helper function to get the list of assignments on a page
 async function scrapeAssignments($) {
@@ -176,45 +263,57 @@ function getPercentFromStr(percent){
 }
 
 module.exports.fetchHeaderDefaults = {
-    'content-type': 'application/x-www-form-urlencoded', 
+    // 'content-type': 'application/x-www-form-urlencoded', 
     "User-Agent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3738.0 Safari/537.36"
 }
 
 const validateRes = (res) => {
-	if (!res.ok)
+	if (!res.ok){
+        newProxyAgent()
 		throw new Error(res.statusText);
+    }
     return res
 }
 
 const validateHTML = (text) => {
-    if (!text)
+    if (!text){
+        newProxyAgent()
         throw new Error("No HTML");
+    }
     return text
+}
+
+const handleFetchError = (error) => {
+    if(error.name == "AbortError" || error.name == "FetchError"){
+        newProxyAgent()
+    }
+    throw error
 }
 
 module.exports.openAndSignIntoGenesis = async function (emailURIencoded, passURIencoded, schoolDomain){
     const body = `j_username=${emailURIencoded}&j_password=${passURIencoded}`
     const loginURL = `${module.exports.getSchoolUrl(schoolDomain,"securityCheck")}?${body}`;
     const landingURL = module.exports.getSchoolUrl(schoolDomain,"loginPage")
+    const mainURL = module.exports.getSchoolUrl(schoolDomain,"main")
     const userAgent = (new UserAgent({ deviceCategory: 'desktop' })).toString()
     let cookieJar
     let response
     let resText
     try{
         await pRetry(async ()=>{
-            let cookieResponse = await fetch(landingURL, {headers:{...module.exports.fetchHeaderDefaults, "User-Agent":userAgent}, method:"get", agent: proxyAgent}).then(validateRes)
+            let cookieResponse = await fetch(landingURL, {headers:{...module.exports.fetchHeaderDefaults, "User-Agent":userAgent}, method:"get", agent: proxyAgent.value, signal: AbortSignal.timeout(15000)}).then(validateRes).catch(handleFetchError)
             await cookieResponse.text()
             const cookieFromHeader = cookieResponse.headers.raw()['set-cookie']
             if(!cookieFromHeader)
                 throw new Error("No cookies in header")
             cookieJar = cookieFromHeader.map(e=>e.split(";")[0]).join("; ")
-            response = await fetch(loginURL, {headers:{...module.exports.fetchHeaderDefaults, cookie:cookieJar, "User-Agent":userAgent},method:"post", agent: proxyAgent}).then(validateRes)
-            resText = await response.text().then(validateHTML)
+            response = await fetch(loginURL, {headers:{...module.exports.fetchHeaderDefaults, cookie:cookieJar, "User-Agent":userAgent},method:"post", agent: proxyAgent.value, signal: AbortSignal.timeout(15000)}).then(validateRes).catch(handleFetchError)
+            // await fetch(mainURL, {headers:{...module.exports.fetchHeaderDefaults, cookie:cookieJar, "User-Agent":userAgent},method:"get", agent: proxyAgent.value, signal: AbortSignal.timeout(15000)}).then(validateRes)
+            resText = await response.text().then(validateHTML).catch(handleFetchError)
         }, {
             onFailedAttempt: error => {
                 console.log(`Attempt ${error.attemptNumber} failed.`);
                 console.error(error)
-                fetch('https://api.ipify.org?format=json', {agent: proxyAgent}).then(res=>res.json()).then(console.log)
             }
             // retries: 5,	
         })
@@ -226,6 +325,7 @@ module.exports.openAndSignIntoGenesis = async function (emailURIencoded, passURI
     const signedIn = checkSignIn(response.url, $ ,schoolDomain)
     if(!signedIn)
         console.log(`Sign in failed: ${userAgent}`)
+    
     return ({$,signedIn,cookie:cookieJar,url:response.url, userAgent})
 }
 
@@ -233,6 +333,7 @@ function checkSignIn (url, $ ,schoolDomain){
     // console.log(`Size of HTML: ${$.html().length}`)
     const res = ($.html().length>1000 
     && url != module.exports.getSchoolUrl(schoolDomain,"loginPage") 
+    && url != module.exports.getSchoolUrl(schoolDomain,"main") 
     && $('.sectionTitle').text().trim() != "Invalid user name or password.  Please try again."
     && $("span").text().trim() != "2-Factor Key:")
     if(!res){
@@ -252,7 +353,8 @@ module.exports.openPage = async function (cookieJar, pageUrl, userAgent){
     return await pRetry(async () => await fetch(pageUrl, {
             headers,
             method: 'get',
-            agent: proxyAgent
+            agent: proxyAgent.value,
+            signal: AbortSignal.timeout(15000)
         }, {
             onFailedAttempt: error => {
                 console.log(`Attempt ${error.attemptNumber} failed.`);
@@ -261,7 +363,8 @@ module.exports.openPage = async function (cookieJar, pageUrl, userAgent){
         })
         .then(validateRes)
         .then(response => response.text())
-        .then(validateHTML))
+        .then(validateHTML)
+        .catch(handleFetchError))
 }
 
 async function updateGradesWithMP(grades, className, indivMarkingPeriod, $){
