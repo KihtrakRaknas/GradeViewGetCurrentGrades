@@ -131,12 +131,12 @@ const updateProxies = () => {
 
 let newProxyOnFailFlag = false
 let requestTimeout = -1
-module.exports.initProxies = function (options){
+module.exports.initProxies = function (options={}){
     updateProxies()
     setInterval(updateProxies, 1000 * 60 * 60)
     newProxyOnFailFlag = Object.hasOwn(options, 'newProxyOnFail') ? options.newProxyOnFail : true
     const checkProxyInterval = Object.hasOwn(options, 'checkProxyInterval') ? options.checkProxyInterval : 10
-    if(checkProxyInterval != 0 && checkProxyRegularly != -1)
+    if(checkProxyInterval != 0 && checkProxyInterval != -1)
         setInterval(checkNewProxyAgent, 1000 * checkProxyInterval)
     requestTimeout = Object.hasOwn(options, 'requestTimeout') ? options.requestTimeout : 15
 }
