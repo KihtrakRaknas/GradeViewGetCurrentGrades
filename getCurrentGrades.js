@@ -172,7 +172,7 @@ async function checkNewProxyAgent () {
         console.log("Proxy still working")
 }
 
-// setInterval(checkNewProxyAgent, 1000 * 10)
+setInterval(checkNewProxyAgent, 1000 * 10)
 
 //This is a helper function to get the list of assignments on a page
 async function scrapeAssignments($) {
