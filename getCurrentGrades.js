@@ -244,7 +244,7 @@ function checkSignIn (url, $ ,schoolDomain){
         console.log(`Size of HTML: ${$.html().length}`)
         console.log(`Section Title: ${$('.sectionTitle').text().trim()}`)
         console.log(`2-Factor Key Text: ${$("span").text().trim()}`)
-        // console.log(`HTML: ${$.html()}`)
+        console.log(`HTML: ${$.html()}`)
     }
     return res
 }
