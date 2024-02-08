@@ -209,7 +209,7 @@ module.exports.openAndSignIntoGenesis = async function (emailURIencoded, passURI
                 throw new Error("No cookies in header")
             cookieJar = cookieFromHeader.map(e=>e.split(";")[0]).join("; ")
             response = await fetch(loginURL, {headers:{...module.exports.fetchHeaderDefaults, cookie:cookieJar, "User-Agent":userAgent},method:"post", agent: proxyAgent}).then(validateRes)
-            resText = await response.text().then(validateHTML)
+            resText = await response.text()
         }, {
             onFailedAttempt: error => {
                 console.log(`Attempt ${error.attemptNumber} failed.`);
