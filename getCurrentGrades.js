@@ -164,12 +164,13 @@ async function newProxyAgent () {
 async function checkNewProxyAgent () {
     if(proxyLock)
         return
-    console.log("Verifying Proxy...")
+    // console.log("Verifying Proxy...")
     if(!proxyAgent.value || !(await testProxy(proxyAgent.value))[0]){
         console.log("Proxy not working")
         newProxyAgent()
-    }else
-        console.log("Proxy still working")
+    }else{
+        // console.log("Proxy still working")
+    }
 }
 
 setInterval(checkNewProxyAgent, 1000 * 10)
