@@ -117,7 +117,7 @@ const updateProxies = () => {
         countries: ['us', 'ca'],
         filterMode: 'strict',
         protocols: ['https','http'],
-        sourcesWhiteList: ['proxyscrape-com']
+        // sourcesWhiteList: ['proxyscrape-com']
     })
     proxyList.on('data', async function(proxies) {
         const first = allProxies.length == 0
