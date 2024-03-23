@@ -58,6 +58,8 @@ module.exports.urlMaster={
     }
 }
 
+domainsWithProxy = ["sbstudents.org"]
+
 module.exports.getSchoolUrl = function(schoolDomain,pageType){
     const root = module.exports.urlMaster[schoolDomain]?module.exports.urlMaster[schoolDomain]["root"]:module.exports.urlMaster["sbstudents.org"]["root"]
     if(!pageType || pageType == "root")
@@ -319,13 +321,13 @@ module.exports.openAndSignIntoGenesis = async function (emailURIencoded, passURI
     let resText
     try{
         await pRetry(async ()=>{
-            let cookieResponse = await fetch(landingURL, {headers:{...module.exports.fetchHeaderDefaults, "User-Agent":userAgent}, method:"get", agent: proxyAgent.value, signal: createAbortSignal()}).then(validateRes).catch(handleFetchError)
+            let cookieResponse = await fetch(landingURL, {headers:{...module.exports.fetchHeaderDefaults, "User-Agent":userAgent}, method:"get", agent: proxyIfNeeded(landingURL), signal: createAbortSignal()}).then(validateRes).catch(handleFetchError)
             await cookieResponse.text()
             const cookieFromHeader = cookieResponse.headers.raw()['set-cookie']
             if(!cookieFromHeader)
                 throw new Error("No cookies in header")
             cookieJar = cookieFromHeader.map(e=>e.split(";")[0]).join("; ")
-            response = await fetch(loginURL, {headers:{...module.exports.fetchHeaderDefaults, cookie:cookieJar, "User-Agent":userAgent},method:"post", agent: proxyAgent.value, signal: createAbortSignal()}).then(validateRes).catch(handleFetchError)
+            response = await fetch(loginURL, {headers:{...module.exports.fetchHeaderDefaults, cookie:cookieJar, "User-Agent":userAgent},method:"post", agent: proxyIfNeeded(loginURL), signal: createAbortSignal()}).then(validateRes).catch(handleFetchError)
             // await fetch(mainURL, {headers:{...module.exports.fetchHeaderDefaults, cookie:cookieJar, "User-Agent":userAgent},method:"get", agent: proxyAgent.value, signal: AbortSignal.timeout(15000)}).then(validateRes)
             resText = await response.text().then(validateHTML).catch(handleFetchError)
         }, {
@@ -364,6 +366,12 @@ function checkSignIn (url, $ ,schoolDomain){
     return res
 }
 
+function proxyIfNeeded(url){
+    if(domainsWithProxy.some(domain=>url.startsWith(module.exports.urlMaster[domain]["root"])))
+        return proxyAgent.value
+    return null
+}
+
 module.exports.openPage = async function (cookieJar, pageUrl, userAgent){
     let headers ={ ...module.exports.fetchHeaderDefaults, cookie:cookieJar}
     if(userAgent)
@@ -371,7 +379,7 @@ module.exports.openPage = async function (cookieJar, pageUrl, userAgent){
     return await pRetry(async () => await fetch(pageUrl, {
             headers,
             method: 'get',
-            agent: proxyAgent.value,
+            agent: proxyIfNeeded(pageUrl),
             signal: createAbortSignal()
         }, {
             onFailedAttempt: error => {
