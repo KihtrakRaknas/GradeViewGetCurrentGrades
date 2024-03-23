@@ -332,7 +332,7 @@ module.exports.openAndSignIntoGenesis = async function (emailURIencoded, passURI
             resText = await response.text().then(validateHTML).catch(handleFetchError)
         }, {
             onFailedAttempt: error => {
-                console.log(`Attempt ${error.attemptNumber} failed.`);
+                console.log(`Attempt ${error.attemptNumber} failed. URL: ${landingURL}/${loginURL}`);
                 console.error(error)
             }
             // retries: 5,	
@@ -383,7 +383,7 @@ module.exports.openPage = async function (cookieJar, pageUrl, userAgent){
             signal: createAbortSignal()
         }, {
             onFailedAttempt: error => {
-                console.log(`Attempt ${error.attemptNumber} failed.`);
+                console.log(`Attempt ${error.attemptNumber} failed. URL: ${pageUrl}`);
                 console.error(error)
             }
         })
