@@ -55,6 +55,12 @@ module.exports.urlMaster={
         loginPage: "/sis/view?gohome=true",
         securityCheck:"/sis/j_security_check",
         main:"/parents"
+    },
+    "nbtschools.org":{
+        root: "https://students.nbtschools.org/genesis",
+        loginPage: "/sis/view?gohome=true",
+        securityCheck:"/sis/j_security_check",
+        main:"/parents"
     }
 }
 
